@@ -17,10 +17,10 @@ const ChatManager = (() => {
 
     // Rotating chat background images
     const CHAT_BG_IMAGES = [
-        'picture/fd6456b4895bb5c13918da7abb7a0927161775300.jpg',
-        'picture/01ed4f22fdf2f5a6cc1e830d60a87711161775300.jpg',
-        'picture/39e9564701cf7e7cb4479164e79f09c5161775300.jpg',
-        'picture/e97d410183e591815a5699c3c1e8b36e161775300.jpg',
+        'picture/fd6456b4895bb5c13918da7abb7a0927161775300.webp',
+        'picture/01ed4f22fdf2f5a6cc1e830d60a87711161775300.webp',
+        'picture/39e9564701cf7e7cb4479164e79f09c5161775300.webp',
+        'picture/e97d410183e591815a5699c3c1e8b36e161775300.webp',
     ];
     let chatBgLayers = [];
     let chatBgImageIndex = 0;

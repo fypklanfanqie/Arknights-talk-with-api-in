@@ -23,15 +23,15 @@ const Live2DManager = (() => {
     };
 
     const FALLBACK_IMAGES = {
-        'amiya': 'picture/立绘_阿米娅(近卫)_skin2.png',
-        'eyjafjalla': 'picture/立绘_艾雅法拉_skin1.png',
-        'goldenglow': 'picture/立绘_澄闪_skin3.png',
-        'mudrock': 'picture/立绘_泥岩_skin1.png',
-        'la-pluma': 'picture/立绘_羽毛笔_2.png',
-        'logos': 'picture/立绘_逻各斯_skin1.png',
-        'honeyberry': 'picture/立绘_蜜莓_skin1.png',
-        'haruka': 'picture/立绘_遥_2.png',
-        'wisdel': 'picture/立绘_维什戴尔_2.png',
+        'amiya': 'picture/立绘_阿米娅(近卫)_skin2.webp',
+        'eyjafjalla': 'picture/立绘_艾雅法拉_skin1.webp',
+        'goldenglow': 'picture/立绘_澄闪_skin3.webp',
+        'mudrock': 'picture/立绘_泥岩_skin1.webp',
+        'la-pluma': 'picture/立绘_羽毛笔_2.webp',
+        'logos': 'picture/立绘_逻各斯_skin1.webp',
+        'honeyberry': 'picture/立绘_蜜莓_skin1.webp',
+        'haruka': 'picture/立绘_遥_2.webp',
+        'wisdel': 'picture/立绘_维什戴尔_2.webp',
     };
 
     const MODEL_NAMES = {
