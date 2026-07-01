@@ -55,7 +55,11 @@ const Live2DManager = (() => {
             fallbackEl = document.getElementById('live2d-fallback');
 
             if (!canvas || !viewportEl) {
-                console.warn('Live2D containers not found');
+                console.warn('Live2D containers not found, showing fallback');
+                // Show fallback directly without canvas dependency
+                if (fallbackEl) {
+                    fallbackEl.classList.remove('hidden');
+                }
                 return;
             }
 
@@ -142,10 +146,16 @@ const Live2DManager = (() => {
             return;
         }
 
-        // Remove old model
+        // Remove old model safely
         if (model) {
-            app.stage.removeChild(model);
-            model.destroy();
+            try {
+                if (app && app.stage) {
+                    app.stage.removeChild(model);
+                }
+                model.destroy();
+            } catch (e) {
+                console.warn('Error removing old Live2D model:', e);
+            }
             model = null;
         }
 
@@ -186,16 +196,31 @@ const Live2DManager = (() => {
     }
 
     function showFallback(characterId) {
-        if (model) {
-            app.stage.removeChild(model);
-            model.destroy();
+        try {
+            if (model) {
+                if (app && app.stage) {
+                    app.stage.removeChild(model);
+                }
+                model.destroy();
+                model = null;
+            }
+        } catch (e) {
+            console.warn('Error removing Live2D model:', e);
             model = null;
         }
         if (canvas) canvas.style.display = 'none';
         if (fallbackEl) {
             fallbackEl.classList.remove('hidden');
             const img = document.getElementById('live2d-fallback-img');
-            if (img) img.src = FALLBACK_IMAGES[characterId] || FALLBACK_IMAGES['amiya'];
+            if (img) {
+                img.src = FALLBACK_IMAGES[characterId] || FALLBACK_IMAGES['amiya'];
+                img.onerror = function() {
+                    // If fallback image fails to load, try Amiya as last resort
+                    if (img.src !== FALLBACK_IMAGES['amiya']) {
+                        img.src = FALLBACK_IMAGES['amiya'];
+                    }
+                };
+            }
         }
         const modelNameEl = document.getElementById('live2d-model-name');
         if (modelNameEl) {

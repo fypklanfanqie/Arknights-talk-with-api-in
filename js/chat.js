@@ -441,8 +441,12 @@ const ChatManager = (() => {
 
     function updateCharacterDisplay() {
         const char = CHARACTERS[currentCharacterId];
-        charNameEl.textContent = char.name;
-        charRoleEl.textContent = char.role.toUpperCase();
+        if (!char) {
+            console.warn('Character not found:', currentCharacterId);
+            return;
+        }
+        if (charNameEl) charNameEl.textContent = char.name;
+        if (charRoleEl) charRoleEl.textContent = char.role.toUpperCase();
     }
 
     function initChatBackground() {
@@ -727,6 +731,10 @@ const ChatManager = (() => {
     }
 
     function switchCharacter(characterId) {
+        if (!CHARACTERS[characterId]) {
+            console.warn('Cannot switch to unknown character:', characterId);
+            return;
+        }
         if (characterId === currentCharacterId) return;
 
         // Save current history
