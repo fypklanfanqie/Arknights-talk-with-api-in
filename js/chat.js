@@ -410,6 +410,67 @@ const ChatManager = (() => {
         },
     };
 
+    /* ============================================================
+       LaTeX / Math rendering with KaTeX
+       Supports: $...$ inline, $$...$$ block, \(...\), \[...\]
+       ============================================================ */
+    function renderLatex(text) {
+        if (!text) return '';
+
+        // First, escape HTML to prevent XSS
+        let html = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        // Protect escaped dollar signs \$ → placeholder, to avoid false matches
+        html = html.replace(/\\\$/g, '%%KATEX_DOLLAR%%');
+
+        // Render block math: $$...$$ and \[...\]
+        html = html.replace(/\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g, (match, math1, math2) => {
+            const formula = (math1 || math2).trim();
+            // Restore \$ inside math formulas
+            const restored = formula.replace(/%%KATEX_DOLLAR%%/g, '\\$');
+            try {
+                return katex.renderToString(restored, {
+                    displayMode: true,
+                    throwOnError: false,
+                    trust: true,
+                    strict: false,
+                    output: 'html',
+                });
+            } catch (e) {
+                console.warn('KaTeX block render error:', e.message);
+                return `<pre class="katex-error">${match}</pre>`;
+            }
+        });
+
+        // Render inline math: $...$ (single $, not $$) and \(...\)
+        // Negative lookbehind for \$ — we already protected \$ so this is safe
+        html = html.replace(/(?<!\$)\$([^$\n]+?)\$(?!\$)|\\\(([\s\S]*?)\\\)/g, (match, math1, math2) => {
+            const formula = (math1 || math2).trim();
+            // Restore \$ inside math formulas
+            const restored = formula.replace(/%%KATEX_DOLLAR%%/g, '\\$');
+            try {
+                return katex.renderToString(restored, {
+                    displayMode: false,
+                    throwOnError: false,
+                    trust: true,
+                    strict: false,
+                    output: 'html',
+                });
+            } catch (e) {
+                console.warn('KaTeX inline render error:', e.message);
+                return `<span class="katex-error">${match}</span>`;
+            }
+        });
+
+        // Restore any remaining protected \$ (outside math blocks) to literal $
+        html = html.replace(/%%KATEX_DOLLAR%%/g, '$');
+
+        return html;
+    }
+
     function init() {
         messagesContainer = document.getElementById('chat-messages');
         inputEl = document.getElementById('chat-input');
@@ -438,6 +499,25 @@ const ChatManager = (() => {
         // Update UI
         updateCharacterDisplay();
         renderHistory();
+
+        // Fallback: auto-render any missed math in messages container
+        if (typeof renderMathInElement !== 'undefined') {
+            try {
+                renderMathInElement(messagesContainer, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '$', right: '$', display: false },
+                        { left: '\\(', right: '\\)', display: false },
+                        { left: '\\[', right: '\\]', display: true },
+                    ],
+                    throwOnError: false,
+                    trust: true,
+                    strict: false,
+                });
+            } catch (e) {
+                console.warn('KaTeX auto-render error:', e);
+            }
+        }
     }
 
     function updateCharacterDisplay() {
@@ -516,7 +596,7 @@ const ChatManager = (() => {
 
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
-        bubble.textContent = content;
+        bubble.innerHTML = renderLatex(content);
 
         const time = document.createElement('div');
         time.className = 'message-time';
@@ -665,7 +745,7 @@ const ChatManager = (() => {
                     const delta = parsed.choices?.[0]?.delta?.content;
                     if (delta) {
                         fullContent += delta;
-                        bubble.textContent = fullContent;
+                        bubble.innerHTML = renderLatex(fullContent);
                         scrollToBottom();
                     }
                 } catch {}
@@ -690,7 +770,7 @@ const ChatManager = (() => {
 
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
-        bubble.textContent = '';
+        bubble.innerHTML = '';
 
         div.appendChild(sender);
         div.appendChild(bubble);

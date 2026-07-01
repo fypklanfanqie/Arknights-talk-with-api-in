@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="罗德岛通讯终端 - Arknights Talk Terminal">
     <meta http-equiv="Cache-Control" content="public, max-age=86400">
     <title>RHODES ISLAND // TERMINAL</title>
@@ -27,6 +27,8 @@
     <!-- pixi-live2d-display (registers as PIXI.live2d.Live2DModel) -->
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js" crossorigin="anonymous"></script>
 
+    <!-- KaTeX for math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <!-- Styles -->
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -410,6 +412,9 @@
     <div id="toast-container"></div>
 
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/tilt.js"></script>
     <script src="js/music.js"></script>

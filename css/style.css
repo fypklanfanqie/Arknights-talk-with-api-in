@@ -1006,7 +1006,7 @@ button {
 
 .message-bubble {
     padding: 12px 16px;
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.7;
     word-break: break-word;
     white-space: pre-wrap;
@@ -1667,35 +1667,47 @@ button {
 
 /* --- Phone / Small screens (up to 768px) --- */
 @media (max-width: 768px) {
-    #app-container {
-        grid-template-columns: 1fr;
-        grid-template-rows: 35vh auto auto;
-        overflow-y: auto;
-        gap: 8px;
-        padding: 8px;
+
+    /* === FOUNDATION: Body & HTML === */
+    html {
+        -webkit-text-size-adjust: 100%;
+    }
+    html, body {
+        touch-action: manipulation;
+        overscroll-behavior: none;
     }
 
+    /* === GRID LAYOUT RESTRUCTURE: Chat as primary element === */
+    #app-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+        overflow: hidden;
+        gap: 6px;
+        padding: 6px;
+        /* iOS safe area padding */
+        padding-top: max(6px, env(safe-area-inset-top));
+        padding-bottom: max(6px, env(safe-area-inset-bottom));
+        padding-left: max(6px, env(safe-area-inset-left));
+        padding-right: max(6px, env(safe-area-inset-right));
+    }
+
+    /* Left panel: auto-height with internal scroll, capped */
     #left-panel {
         flex-direction: column;
+        max-height: 30vh;
+        overflow-y: auto;
+        flex-shrink: 0;
     }
     #live2d-container {
         flex: 1;
         border-bottom: 1px solid var(--acrylic-border);
         border-right: none;
     }
-    #music-player {
-        width: 100%;
-        flex-shrink: 1;
-    }
-    #music-player .panel-label {
-        font-size: 8px;
-        letter-spacing: 1.5px;
-        padding: 6px 10px;
-    }
 
-    /* Middle panel chat improvements for mobile */
+    /* Middle panel: fills remaining space, internal scroll via chat-messages */
     #middle-panel {
-        min-height: 55vh;
+        min-height: 0;
+        overflow: hidden;
     }
     .chat-messages {
         padding: 10px;
@@ -1705,28 +1717,124 @@ button {
         max-width: 92%;
     }
     .message-bubble {
-        font-size: 12px;
+        font-size: 14px;
         padding: 10px 12px;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        overflow-x: auto;
     }
     .chat-character-name {
         font-size: 16px;
     }
     .chat-character-role {
         font-size: 8px;
+        max-width: 50vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    /* Right panel: settings collapsible on mobile */
+    /* Right panel: capped with internal scroll */
     #right-panel {
         flex-direction: column;
-        overflow-y: visible;
+        max-height: 35vh;
+        overflow-y: auto;
         overflow-x: hidden;
         gap: 0;
     }
+
+    /* === iOS SAFE AREAS === */
+    .chat-input-area {
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    #toast-container {
+        top: max(10px, env(safe-area-inset-top));
+        right: max(10px, env(safe-area-inset-right));
+    }
+
+    /* === TOUCH TARGETS: Minimum 44px === */
+    .music-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .music-btn svg {
+        width: 22px;
+        height: 22px;
+    }
+    .music-btn-play {
+        min-width: 48px;
+        min-height: 48px;
+        padding: 12px;
+    }
+    .btn-send {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px 14px;
+    }
+    .btn-send svg {
+        width: 22px;
+        height: 22px;
+    }
+    .btn-ghost {
+        min-height: 44px;
+        padding: 8px 12px;
+        font-size: 9px;
+    }
+    .btn-save {
+        min-height: 44px;
+        padding: 12px 18px;
+        font-size: 12px;
+    }
+    .btn-toggle-pw {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 12px;
+    }
+    .playlist-item {
+        font-size: 12px;
+        padding: 10px 14px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+    .mobile-char-select {
+        min-height: 44px;
+        padding: 8px 28px 8px 10px;
+        font-size: 11px;
+    }
+    .form-group input,
+    .form-group select {
+        min-height: 44px;
+        padding: 10px 12px;
+        font-size: 16px; /* prevents iOS zoom on focus */
+    }
+    .volume-slider {
+        height: 6px;
+    }
+    .volume-slider::-webkit-slider-thumb {
+        width: 22px;
+        height: 22px;
+    }
+    .progress-bar-track {
+        height: 10px;
+        min-height: 10px;
+    }
+    .panel-label {
+        min-height: 32px;
+        padding: 8px 10px;
+    }
+
+    /* === SETTINGS COLLAPSE ANIMATION FIX === */
     #settings-panel {
         border-bottom: 1px solid var(--acrylic-border);
-        max-height: none;
+        max-height: 600px; /* numeric value enables CSS transition */
         overflow: hidden;
-        transition: max-height 0.3s var(--ease-out-expo);
+        transition: max-height 0.4s var(--ease-out-expo);
     }
     #settings-panel.collapsed {
         max-height: 0;
@@ -1734,13 +1842,14 @@ button {
     }
     #settings-panel .settings-form {
         overflow: hidden;
-        transition: opacity 0.3s var(--ease-out-expo), padding 0.3s var(--ease-out-expo);
+        transition: opacity 0.2s var(--ease-out-expo), padding 0.3s var(--ease-out-expo);
     }
     #settings-panel.collapsed .settings-form {
         opacity: 0;
         padding-top: 0;
         padding-bottom: 0;
     }
+
     /* Settings toggle button */
     .settings-toggle-btn {
         display: flex !important;
@@ -1748,15 +1857,16 @@ button {
         justify-content: center;
         gap: 6px;
         width: 100%;
+        min-height: 44px;
         background: rgba(0,0,0,0.25);
         border: none;
         border-bottom: 1px solid var(--acrylic-border);
         color: var(--gold-dim);
         cursor: pointer;
-        padding: 8px 14px;
+        padding: 12px 14px;
         font-family: var(--font-mono);
-        font-size: 9px;
-        letter-spacing: 1.5px;
+        font-size: 11px;
+        letter-spacing: 2px;
         text-transform: uppercase;
         transition: all var(--transition-fast);
     }
@@ -1773,7 +1883,7 @@ button {
         transform: rotate(-90deg);
     }
 
-    /* Character cards on mobile: 2-column grid */
+    /* === CHARACTER CARDS === */
     #character-cards {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -1787,26 +1897,34 @@ button {
         padding: 8px;
     }
     .character-card-name {
-        font-size: 14px;
+        font-size: 13px;
     }
     .character-card-title {
         font-size: 9px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .character-card-race {
-        font-size: 9px;
+        font-size: 8px;
     }
     .character-code {
         font-size: 8px;
     }
+    /* Disable mix-blend-mode on mobile (rendering bugs) */
+    .character-img {
+        mix-blend-mode: normal;
+        filter: contrast(1.05);
+    }
 
-    /* Smaller panel label */
+    /* === SMALLER PANEL LABELS === */
     .panel-label {
         font-size: 8px;
         letter-spacing: 1.5px;
         padding: 6px 10px;
     }
 
-    /* Show mobile character switcher */
+    /* === MOBILE CHARACTER SWITCHER === */
     #mobile-char-switcher {
         display: flex;
     }
@@ -1817,15 +1935,192 @@ button {
         padding: 0 8px;
     }
 
-    /* Make toast smaller on mobile */
+    /* === TOASTS: Responsive sizing === */
     .toast {
         font-size: 10px;
-        padding: 8px 14px;
-        max-width: 260px;
+        padding: 10px 14px;
+        max-width: min(320px, calc(100vw - 40px));
     }
 
+    /* === MUSIC PLAYER COMPACT MODE === */
+    #music-player {
+        width: 100%;
+        flex-shrink: 1;
+    }
+    #music-player .panel-label {
+        font-size: 7px;
+        letter-spacing: 1.5px;
+        padding: 5px 8px;
+    }
+    .music-info {
+        padding: 6px 8px 2px;
+    }
+    .music-title {
+        font-size: 12px;
+    }
+    .music-artist {
+        font-size: 8px;
+    }
+    .music-waveform {
+        display: none; /* decorative, save space */
+    }
+    .music-controls {
+        gap: 10px;
+        padding: 2px 8px;
+    }
+    .music-progress {
+        padding: 4px 8px;
+    }
+    .music-volume {
+        padding: 2px 8px 4px;
+        gap: 6px;
+    }
+    .volume-slider {
+        width: auto;
+        flex: 1;
+    }
+    .music-playlist {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 5px;
+        padding: 0 8px 6px;
+        scrollbar-width: none;
+    }
+    .music-playlist::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* === CHAT INPUT OPTIMIZATION === */
+    .chat-input-area {
+        padding: 8px 10px;
+    }
+    .chat-input-wrapper {
+        padding: 7px 10px;
+        gap: 8px;
+    }
+    #chat-input {
+        font-size: 16px; /* prevents iOS auto-zoom */
+    }
+    .input-prompt {
+        font-size: 16px;
+    }
+    #chat-input::placeholder {
+        font-size: 14px;
+    }
+    .chat-input-hint {
+        display: none; /* save vertical space */
+    }
+
+    /* === KATEX MATH MOBILE SIZING === */
+    .katex {
+        font-size: 1.15em !important;
+    }
+    .katex-display {
+        margin: 0.6em 0;
+        padding: 0.5em 0.6em;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .katex-display > .katex {
+        font-size: 1em !important;
+    }
+    .message-bubble .katex {
+        font-size: 1.15em !important;
+    }
+    /* Wider formula scrollbar for touch */
+    .katex-display::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    /* === LOADING SCREEN === */
+    .loading-content {
+        width: min(340px, 88vw);
+        padding: 22px 18px;
+    }
+    .loading-label {
+        font-size: 10px;
+        letter-spacing: 3px;
+    }
+
+    /* === ATMOSPHERE: Reduce overhead === */
     #vignette {
         opacity: 0.75;
+    }
+    #grain-overlay {
+        opacity: 0.02;
+    }
+
+    /* === iOS SAFE AREA: Bottom-anchored toasts on notched phones === */
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+        #toast-container {
+            top: auto;
+            bottom: max(16px, env(safe-area-inset-bottom));
+            right: max(10px, env(safe-area-inset-right));
+        }
+    }
+}
+
+/* ============================================================
+   EXTRA-SMALL PHONES (iPhone SE, sub-380px)
+   ============================================================ */
+@media (max-width: 380px) {
+    #app-container {
+        gap: 4px;
+        padding: 4px;
+        padding-top: max(4px, env(safe-area-inset-top));
+        padding-bottom: max(4px, env(safe-area-inset-bottom));
+        padding-left: max(4px, env(safe-area-inset-left));
+        padding-right: max(4px, env(safe-area-inset-right));
+    }
+    #left-panel {
+        max-height: 25vh;
+    }
+    #right-panel {
+        max-height: 30vh;
+    }
+    .chat-messages {
+        padding: 6px;
+        gap: 4px;
+    }
+    .message {
+        max-width: 98%;
+    }
+    .message-bubble {
+        font-size: 13px;
+        padding: 8px 10px;
+    }
+    #character-cards {
+        gap: 5px;
+        padding: 5px;
+    }
+    .character-card-inner {
+        padding: 5px;
+    }
+    .character-card-name {
+        font-size: 11px;
+    }
+    .chat-character-name {
+        font-size: 14px;
+    }
+    .chat-character-role {
+        font-size: 7px;
+        max-width: 45vw;
+    }
+    #chat-input {
+        font-size: 14px;
+    }
+    .btn-ghost {
+        padding: 6px 8px;
+        font-size: 8px;
+    }
+    .toast {
+        font-size: 9px;
+        padding: 8px 10px;
+        max-width: min(280px, calc(100vw - 32px));
+    }
+    .katex-display {
+        padding: 0.4em 0.5em;
     }
 }
 
@@ -1915,6 +2210,135 @@ button {
     .toast {
         animation: none;
     }
+}
+
+/* ============================================================
+   KATEX MATH RENDERING — Terminal Dark Theme Overrides
+   ============================================================ */
+
+/* --- Inline math --- */
+.katex {
+    font-size: 1.05em !important;
+    color: var(--text-primary);
+}
+
+/* --- Block / display math --- */
+.katex-display {
+    margin: 1em 0;
+    padding: 0.8em 1em;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: rgba(0, 0, 0, 0.25);
+    clip-path: polygon(
+        0 0,
+        calc(100% - 8px) 0,
+        100% 8px,
+        100% 100%,
+        8px 100%,
+        0 calc(100% - 8px)
+    );
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-blue-dim);
+    border-radius: 2px;
+}
+
+.katex-display > .katex {
+    font-size: 1.1em !important;
+    text-align: center;
+    white-space: normal;
+}
+
+/* --- Scrollbar for wide formulas --- */
+.katex-display::-webkit-scrollbar {
+    height: 3px;
+}
+.katex-display::-webkit-scrollbar-thumb {
+    background: var(--border-light);
+    border-radius: 2px;
+}
+
+/* --- Error fallback --- */
+.katex-error {
+    color: var(--danger-bright);
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: rgba(139, 69, 69, 0.1);
+    padding: 2px 5px;
+    border-radius: 2px;
+    border: 1px dashed var(--danger);
+}
+
+/* --- Color overrides for dark theme --- */
+.message-bubble .katex {
+    color: var(--text-primary);
+}
+
+/* Make Greek letters, operators more visible */
+.message-bubble .katex .mathnormal,
+.message-bubble .katex .mord {
+    color: inherit;
+}
+
+/* Fraction lines and brackets in gold tint */
+.message-bubble .katex .mfrac {
+    color: var(--text-primary);
+}
+
+/* Operators (∑, ∫, etc.) */
+.message-bubble .katex .mop {
+    color: var(--gold);
+}
+
+/* Relations (=, ≤, ≥, ≈, etc.) */
+.message-bubble .katex .mrel {
+    color: var(--accent-blue);
+}
+
+/* Binaries (+, -, ×, ÷, etc.) */
+.message-bubble .katex .mbin {
+    color: var(--accent-blue-dim);
+}
+
+/* Unary operators */
+.message-bubble .katex .mord.mtight {
+    color: var(--text-primary);
+}
+
+/* Text inside math */
+.message-bubble .katex .mord.text {
+    color: var(--text-primary);
+}
+
+/* Delimiters (brackets, braces, etc.) */
+.message-bubble .katex .mopen,
+.message-bubble .katex .mclose {
+    color: var(--text-primary);
+}
+
+/* Punctuation */
+.message-bubble .katex .mpunct {
+    color: var(--text-secondary);
+}
+
+/* Superscript / subscript numbers */
+.message-bubble .katex .msupsub {
+    color: var(--text-primary);
+}
+
+/* Overline / underline (vectors, averages) */
+.message-bubble .katex .mover,
+.message-bubble .katex .munder {
+    color: var(--text-primary);
+}
+
+/* Physics notation: arrows, hats, dots over vars */
+.message-bubble .katex .accent {
+    color: var(--text-primary);
+}
+
+/* Special characters like ∞, ∂, ∇ */
+.message-bubble .katex .mord.amsrm {
+    color: var(--text-primary);
 }
 
 /* ============================================================
