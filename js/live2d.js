@@ -44,6 +44,23 @@ const Live2DManager = (() => {
         'zuole': 'Zuo Le',
     };
 
+    // --- Resolve the Live2DModel class from whichever namespace it landed in ---
+    function getLive2DModelClass() {
+        // pixi-live2d-display@0.4.0 registers on PIXI.live2d (primary)
+        if (typeof PIXI !== 'undefined' && PIXI.live2d && PIXI.live2d.Live2DModel) {
+            return PIXI.live2d.Live2DModel;
+        }
+        // Some builds / older versions may put it directly on PIXI
+        if (typeof PIXI !== 'undefined' && PIXI.Live2DModel) {
+            return PIXI.Live2DModel;
+        }
+        // Fallback: global window
+        if (typeof window !== 'undefined' && window.Live2DModel) {
+            return window.Live2DModel;
+        }
+        return null;
+    }
+
     // --- DOM helpers (always query fresh to avoid stale refs) ---
     function getCanvas() { return document.getElementById('live2d-canvas'); }
     function getViewport() { return document.getElementById('live2d-viewport'); }
@@ -87,12 +104,29 @@ const Live2DManager = (() => {
 
         // If containers don't exist, show fallback and exit
         if (!canvas || !viewportEl) {
+            console.warn('Live2D: viewport or canvas not found, using fallback');
             showFallback('amiya');
             return;
         }
 
-        // If PIXI or Live2D plugin not loaded, show fallback
-        if (typeof PIXI === 'undefined' || !PIXI.Live2DModel) {
+        // Check PIXI availability
+        if (typeof PIXI === 'undefined') {
+            console.warn('Live2D: PIXI not loaded, using fallback');
+            showFallback('amiya');
+            return;
+        }
+
+        // Check CubismCore availability (should be global after script loads)
+        if (typeof Live2DCubismCore === 'undefined' && typeof window !== 'undefined' && !window.Live2DCubismCore) {
+            console.warn('Live2D: CubismCore not loaded, using fallback');
+            showFallback('amiya');
+            return;
+        }
+
+        // Check Live2DModel class
+        const Live2DModelClass = getLive2DModelClass();
+        if (!Live2DModelClass) {
+            console.warn('Live2D: Live2DModel class not found, using fallback');
             showFallback('amiya');
             return;
         }
@@ -142,6 +176,7 @@ const Live2DManager = (() => {
             }).observe(viewportEl);
 
             isInitialized = true;
+            console.log('Live2D: initialized successfully');
 
             // Load Amiya model
             await loadModel('amiya');
@@ -182,8 +217,22 @@ const Live2DManager = (() => {
         if (fallbackEl) fallbackEl.classList.add('hidden');
         if (canvas) canvas.style.display = 'block';
 
+        const Live2DModelClass = getLive2DModelClass();
+        if (!Live2DModelClass) {
+            showFallback(characterId);
+            return;
+        }
+
         try {
-            model = await PIXI.Live2DModel.from(modelPath);
+            // URL-encode the model path to handle Chinese characters safely
+            const encodedPath = modelPath.split('/').map(encodeURIComponent).join('/');
+            console.log('Live2D: loading model from', encodedPath);
+
+            model = await Live2DModelClass.from(encodedPath, {
+                autoUpdate: true,
+                crossOrigin: 'anonymous',
+            });
+
             if (!model) throw new Error('Model is null');
 
             const viewportEl = getViewport();
@@ -198,6 +247,7 @@ const Live2DManager = (() => {
             const nameEl = getModelNameEl();
             if (nameEl) nameEl.textContent = MODEL_NAMES[characterId] || characterId.toUpperCase();
 
+            console.log('Live2D: model loaded successfully');
             startAnimationLoop();
 
         } catch (e) {

@@ -44,33 +44,50 @@ const MusicPlayer = (() => {
             playlist: document.getElementById('music-playlist'),
         };
 
+        // Set audio preload to ensure file is buffered
+        audio.preload = 'auto';
+
         // Set initial volume
         audio.volume = Storage.getVolume() / 100;
-        els.volumeSlider.value = Storage.getVolume();
+        if (els.volumeSlider) els.volumeSlider.value = Storage.getVolume();
 
         // Events
         audio.addEventListener('loadedmetadata', updateDuration);
         audio.addEventListener('timeupdate', updateProgress);
         audio.addEventListener('ended', onTrackEnd);
-        audio.addEventListener('error', () => {
-            console.warn('Audio error, skipping track');
+        audio.addEventListener('canplay', () => {
+            console.log('Music: track ready to play');
+        });
+        audio.addEventListener('error', (e) => {
+            const errorCodes = {
+                1: 'MEDIA_ERR_ABORTED',
+                2: 'MEDIA_ERR_NETWORK',
+                3: 'MEDIA_ERR_DECODE',
+                4: 'MEDIA_ERR_SRC_NOT_SUPPORTED',
+            };
+            const code = audio.error ? (errorCodes[audio.error.code] || audio.error.code) : 'unknown';
+            console.warn('Music: audio error —', code, '— skipping track');
+            // Skip to next track on error
+            const wasPlaying = isPlaying;
             next();
+            if (wasPlaying && currentIndex !== 0) play();
         });
 
-        els.btnPlay.addEventListener('click', togglePlay);
-        els.btnPrev.addEventListener('click', prev);
-        els.btnNext.addEventListener('click', next);
-        els.volumeSlider.addEventListener('input', onVolumeChange);
-        els.progressTrack.addEventListener('click', seek);
+        if (els.btnPlay) els.btnPlay.addEventListener('click', togglePlay);
+        if (els.btnPrev) els.btnPrev.addEventListener('click', prev);
+        if (els.btnNext) els.btnNext.addEventListener('click', next);
+        if (els.volumeSlider) els.volumeSlider.addEventListener('input', onVolumeChange);
+        if (els.progressTrack) els.progressTrack.addEventListener('click', seek);
 
         // Build playlist UI
         renderPlaylist();
 
-        // Load first track (don't autoplay)
+        // Load first track (don't autoplay — browser policy)
         loadTrack(0);
     }
 
     function renderPlaylist() {
+        if (!els.playlist) return;
         els.playlist.innerHTML = playlist.map((track, i) => {
             const shortName = TRACK_DISPLAY[track.name] || track.name;
             return `<span class="playlist-item${i === 0 ? ' active' : ''}" data-index="${i}">${shortName}</span>`;
@@ -86,6 +103,7 @@ const MusicPlayer = (() => {
     }
 
     function updatePlaylistActive() {
+        if (!els.playlist) return;
         els.playlist.querySelectorAll('.playlist-item').forEach((item, i) => {
             item.classList.toggle('active', i === currentIndex);
         });
@@ -97,11 +115,18 @@ const MusicPlayer = (() => {
         currentIndex = index;
 
         const track = playlist[currentIndex];
+        if (!track) return;
+
+        // Pause before changing source to avoid transition glitches
+        audio.pause();
+        isPlaying = false;
+        updatePlayIcon();
+
         audio.src = track.file;
         audio.load();
 
         const displayName = TRACK_DISPLAY[track.name] || track.name;
-        els.title.textContent = displayName;
+        if (els.title) els.title.textContent = displayName;
         updatePlaylistActive();
     }
 
@@ -114,12 +139,23 @@ const MusicPlayer = (() => {
     }
 
     function play() {
-        audio.play().then(() => {
-            isPlaying = true;
-            updatePlayIcon();
-        }).catch(e => {
-            console.warn('Playback failed (may need user interaction):', e.message);
-        });
+        // If no source set yet, load the current track
+        if (!audio.src || audio.src === window.location.href) {
+            loadTrack(currentIndex);
+        }
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                isPlaying = true;
+                updatePlayIcon();
+            }).catch(e => {
+                console.warn('Music: playback failed —', e.message);
+                // Browser may require user gesture — button click should satisfy this
+                isPlaying = false;
+                updatePlayIcon();
+            });
+        }
     }
 
     function pause() {
@@ -130,20 +166,20 @@ const MusicPlayer = (() => {
 
     function prev() {
         loadTrack(currentIndex - 1);
-        if (isPlaying) play();
+        play();
     }
 
     function next() {
         loadTrack(currentIndex + 1);
-        if (isPlaying) play();
+        play();
     }
 
     function onTrackEnd() {
         next();
-        if (!isPlaying) play();
     }
 
     function updatePlayIcon() {
+        if (!els.iconPlay || !els.iconPause) return;
         if (isPlaying) {
             els.iconPlay.classList.add('hidden');
             els.iconPause.classList.remove('hidden');
@@ -154,14 +190,14 @@ const MusicPlayer = (() => {
     }
 
     function updateDuration() {
-        els.duration.textContent = formatTime(audio.duration);
+        if (els.duration) els.duration.textContent = formatTime(audio.duration);
     }
 
     function updateProgress() {
         if (isNaN(audio.duration)) return;
         const pct = (audio.currentTime / audio.duration) * 100;
-        els.progressFill.style.width = pct + '%';
-        els.currentTime.textContent = formatTime(audio.currentTime);
+        if (els.progressFill) els.progressFill.style.width = pct + '%';
+        if (els.currentTime) els.currentTime.textContent = formatTime(audio.currentTime);
     }
 
     function seek(e) {

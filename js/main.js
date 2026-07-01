@@ -7,18 +7,49 @@ const App = (() => {
     let characterCards = {};
 
     // Character voice lines (played on card click)
-    const CHARACTER_VOICES = {
-        'la-pluma': new Audio('music/任命助理.wav'),
-        'goldenglow': new Audio('music/任命助理_goldenglow.wav'),
-        'amiya': new Audio('music/干员报到.wav'),
-        'mudrock': new Audio('music/干员报到_mudrock.wav'),
-        'eyjafjalla': new Audio('music/编入队伍.wav'),
-        'logos': new Audio('music/任命助理_logos.wav'),
-        'honeyberry': new Audio('music/任命助理_honeyberry.wav'),
-        'haruka': new Audio('music/干员报到_haruka.wav'),
-        'wisdel': new Audio('music/作战中4_wisdel.wav'),
-        'zuole': new Audio('music/任命助理_zuole.wav'),
+    // Use a factory so Audio objects get fresh load each time, avoiding stalled state
+    const VOICE_FILES = {
+        'la-pluma': 'music/任命助理.wav',
+        'goldenglow': 'music/任命助理_goldenglow.wav',
+        'amiya': 'music/干员报到.wav',
+        'mudrock': 'music/干员报到_mudrock.wav',
+        'eyjafjalla': 'music/编入队伍.wav',
+        'logos': 'music/任命助理_logos.wav',
+        'honeyberry': 'music/任命助理_honeyberry.wav',
+        'haruka': 'music/干员报到_haruka.wav',
+        'wisdel': 'music/作战中4_wisdel.wav',
+        'zuole': 'music/任命助理_zuole.wav',
     };
+
+    // Pool of preloaded Audio objects
+    const voicePool = {};
+
+    function preloadVoice(characterId) {
+        if (voicePool[characterId]) return voicePool[characterId];
+        const file = VOICE_FILES[characterId];
+        if (!file) return null;
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.src = file;
+        audio.load();
+        voicePool[characterId] = audio;
+        return audio;
+    }
+
+    function getVoiceAudio(characterId) {
+        // Reuse pooled audio, reset it for fresh playback
+        const file = VOICE_FILES[characterId];
+        if (!file) return null;
+        let audio = voicePool[characterId];
+        if (!audio) {
+            audio = new Audio();
+            audio.preload = 'auto';
+            voicePool[characterId] = audio;
+        }
+        audio.src = file;
+        audio.load();
+        return audio;
+    }
 
     // Voice line subtitles (JP + CN bilingual)
     const VOICE_LINES = {
@@ -162,6 +193,9 @@ const App = (() => {
             MusicPlayer.init();
             TiltEffect.init();
 
+            // Preload voice files in background (WAV files can be large)
+            cardIds.forEach(id => preloadVoice(id));
+
             // Initialize Live2D with timeout (max 8s)
             try {
                 const live2dPromise = Live2DManager.init();
@@ -259,10 +293,21 @@ const App = (() => {
         }
 
         // 4. Play character voice
-        const voice = CHARACTER_VOICES[characterId];
+        const voice = getVoiceAudio(characterId);
         if (voice) {
             voice.currentTime = 0;
-            voice.play().catch(() => {});
+            voice.muted = false;
+            const playPromise = voice.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(err => {
+                    console.warn('Voice play failed for', characterId, ':', err.message);
+                    // Retry once after a short delay (WAV may still be buffering)
+                    setTimeout(() => {
+                        voice.currentTime = 0;
+                        voice.play().catch(() => {});
+                    }, 300);
+                });
+            }
         }
 
         // 5. Show bilingual subtitle
