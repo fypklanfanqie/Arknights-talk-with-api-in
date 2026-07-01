@@ -1621,10 +1621,12 @@ button {
 /* ============================================================
    RESPONSIVE: Stack vertically on small screens
    ============================================================ */
+
+/* --- Tablet / Medium screens (769px - 1100px) --- */
 @media (max-width: 1100px) {
     #app-container {
         grid-template-columns: 1fr;
-        grid-template-rows: 40vh 60vh auto;
+        grid-template-rows: 40vh auto auto;
         overflow-y: auto;
         gap: 10px;
         padding: 10px;
@@ -1642,18 +1644,229 @@ button {
         flex-shrink: 0;
     }
     #right-panel {
-        flex-direction: row;
-        overflow-x: auto;
+        flex-direction: column;
+        overflow-y: visible;
+        overflow-x: hidden;
     }
     #character-cards {
-        flex-direction: row;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 10px;
     }
     .character-card {
-        min-width: 160px;
+        min-width: 0;
+    }
+    /* Show mobile character switcher on small screens */
+    #mobile-char-switcher {
+        display: flex;
     }
     #vignette {
         opacity: 0.7;
     }
+}
+
+/* --- Phone / Small screens (up to 768px) --- */
+@media (max-width: 768px) {
+    #app-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 35vh auto auto;
+        overflow-y: auto;
+        gap: 8px;
+        padding: 8px;
+    }
+
+    #left-panel {
+        flex-direction: column;
+    }
+    #live2d-container {
+        flex: 1;
+        border-bottom: 1px solid var(--acrylic-border);
+        border-right: none;
+    }
+    #music-player {
+        width: 100%;
+        flex-shrink: 1;
+    }
+    #music-player .panel-label {
+        font-size: 8px;
+        letter-spacing: 1.5px;
+        padding: 6px 10px;
+    }
+
+    /* Middle panel chat improvements for mobile */
+    #middle-panel {
+        min-height: 55vh;
+    }
+    .chat-messages {
+        padding: 10px;
+        gap: 8px;
+    }
+    .message {
+        max-width: 92%;
+    }
+    .message-bubble {
+        font-size: 12px;
+        padding: 10px 12px;
+    }
+    .chat-character-name {
+        font-size: 16px;
+    }
+    .chat-character-role {
+        font-size: 8px;
+    }
+
+    /* Right panel: settings collapsible on mobile */
+    #right-panel {
+        flex-direction: column;
+        overflow-y: visible;
+        overflow-x: hidden;
+        gap: 0;
+    }
+    #settings-panel {
+        border-bottom: 1px solid var(--acrylic-border);
+        max-height: none;
+        overflow: hidden;
+        transition: max-height 0.3s var(--ease-out-expo);
+    }
+    #settings-panel.collapsed {
+        max-height: 0;
+        border-bottom: none;
+    }
+    #settings-panel .settings-form {
+        overflow: hidden;
+        transition: opacity 0.3s var(--ease-out-expo), padding 0.3s var(--ease-out-expo);
+    }
+    #settings-panel.collapsed .settings-form {
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+    /* Settings toggle button */
+    .settings-toggle-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        background: rgba(0,0,0,0.25);
+        border: none;
+        border-bottom: 1px solid var(--acrylic-border);
+        color: var(--gold-dim);
+        cursor: pointer;
+        padding: 8px 14px;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        transition: all var(--transition-fast);
+    }
+    .settings-toggle-btn:hover {
+        color: var(--gold);
+        background: rgba(201, 168, 124, 0.05);
+    }
+    .settings-toggle-btn .toggle-arrow {
+        display: inline-block;
+        transition: transform 0.3s var(--ease-out-expo);
+        font-size: 10px;
+    }
+    #settings-panel.collapsed + .settings-toggle-btn .toggle-arrow {
+        transform: rotate(-90deg);
+    }
+
+    /* Character cards on mobile: 2-column grid */
+    #character-cards {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 8px;
+    }
+    .character-card {
+        min-width: 0;
+    }
+    .character-card-inner {
+        padding: 8px;
+    }
+    .character-card-name {
+        font-size: 14px;
+    }
+    .character-card-title {
+        font-size: 9px;
+    }
+    .character-card-race {
+        font-size: 9px;
+    }
+    .character-code {
+        font-size: 8px;
+    }
+
+    /* Smaller panel label */
+    .panel-label {
+        font-size: 8px;
+        letter-spacing: 1.5px;
+        padding: 6px 10px;
+    }
+
+    /* Show mobile character switcher */
+    #mobile-char-switcher {
+        display: flex;
+    }
+    .chat-header-right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 8px;
+    }
+
+    /* Make toast smaller on mobile */
+    .toast {
+        font-size: 10px;
+        padding: 8px 14px;
+        max-width: 260px;
+    }
+
+    #vignette {
+        opacity: 0.75;
+    }
+}
+
+/* Hide mobile character switcher on desktop by default */
+#mobile-char-switcher {
+    display: none;
+}
+
+/* Settings toggle button - hidden on desktop, shown on mobile */
+.settings-toggle-btn {
+    display: none;
+}
+
+/* Mobile character dropdown in chat header */
+.mobile-char-select {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 5px 24px 5px 10px;
+    clip-path: var(--input-clip);
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7355'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    transition: all var(--transition-fast);
+    max-width: 140px;
+}
+.mobile-char-select:hover,
+.mobile-char-select:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 10px var(--gold-glow);
+}
+.mobile-char-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
 }
 
 /* ============================================================

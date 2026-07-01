@@ -130,6 +130,20 @@
                         <div class="chat-character-role" id="chat-char-role">罗德岛公开领袖</div>
                     </div>
                     <div class="chat-header-right">
+                        <div id="mobile-char-switcher">
+                            <select class="mobile-char-select" id="mobile-char-select" aria-label="选择对话角色">
+                                <option value="la-pluma">羽毛笔</option>
+                                <option value="amiya">阿米娅</option>
+                                <option value="eyjafjalla">艾雅法拉</option>
+                                <option value="goldenglow">澄闪</option>
+                                <option value="mudrock">泥岩</option>
+                                <option value="logos">逻各斯</option>
+                                <option value="honeyberry">蜜莓</option>
+                                <option value="haruka">遥</option>
+                                <option value="wisdel">维什戴尔</option>
+                                <option value="zuole">左乐</option>
+                            </select>
+                        </div>
                         <button class="btn-ghost" id="btn-clear-chat" title="Clear chat">
                             <svg viewBox="0 0 24 24" width="16" height="16"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
                             CLEAR
@@ -213,6 +227,11 @@
                     <div class="settings-status" id="settings-status"></div>
                 </div>
             </div>
+
+            <!-- Settings Toggle (mobile only) -->
+            <button class="settings-toggle-btn" id="btn-toggle-settings" title="Toggle Settings">
+                SYSTEM // CONFIG <span class="toggle-arrow">▼</span>
+            </button>
 
             <!-- Character Cards (bottom) -->
             <div class="panel-label">OPERATOR // SELECT</div>
@@ -361,6 +380,23 @@
                             <div class="character-card-name">维什戴尔</div>
                             <div class="character-card-title">萨卡兹雇佣兵领袖 / 巴别塔议长</div>
                             <div class="character-card-race">萨卡兹</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zuo Le Card -->
+                <div class="character-card" data-character="zuole" id="card-zuole">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_左乐_skin2.webp" alt="左乐" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_左乐_2.webp" alt="左乐" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R4121</div>
+                            <div class="character-card-name">左乐</div>
+                            <div class="character-card-title">司岁台秉烛人 / 罗德岛外勤干员</div>
+                            <div class="character-card-race">斐迪亚</div>
                         </div>
                     </div>
                 </div>

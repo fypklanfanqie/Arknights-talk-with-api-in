@@ -32,6 +32,7 @@ const Live2DManager = (() => {
         'honeyberry': 'picture/立绘_蜜莓_skin1.webp',
         'haruka': 'picture/立绘_遥_2.webp',
         'wisdel': 'picture/立绘_维什戴尔_2.webp',
+        'zuole': 'picture/立绘_左乐_skin2.webp',
     };
 
     const MODEL_NAMES = {
@@ -44,6 +45,7 @@ const Live2DManager = (() => {
         'honeyberry': 'Honeyberry',
         'haruka': 'Haruka',
         'wisdel': "Wis'adel",
+        'zuole': 'Zuo Le',
     };
 
     async function init() {

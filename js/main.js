@@ -17,6 +17,7 @@ const App = (() => {
         'honeyberry': new Audio('music/任命助理_honeyberry.wav'),
         'haruka': new Audio('music/干员报到_haruka.wav'),
         'wisdel': new Audio('music/作战中4_wisdel.wav'),
+        'zuole': new Audio('music/任命助理_zuole.wav'),
     };
 
     // Voice line subtitles (JP + CN bilingual)
@@ -57,6 +58,10 @@ const App = (() => {
             jp: 'バン！誰が、私が毎回カウントダウンすると言ったの？',
             cn: '砰！是谁告诉你，我每次都会倒数的？',
         },
+        'zuole': {
+            jp: '',
+            cn: '我刚当上秉烛人的时候，花了三个月整，才读完司岁台的所有卷宗，而堆积在您这里的文件，数量也......相当可观。我想，我应该有足够的时间来熟悉工作吧？',
+        },
     };
 
     // Loading screen audio
@@ -89,6 +94,7 @@ const App = (() => {
             'honeyberry': document.getElementById('card-honeyberry'),
             'haruka': document.getElementById('card-haruka'),
             'wisdel': document.getElementById('card-wisdel'),
+            'zuole': document.getElementById('card-zuole'),
         };
 
         // Bind character card clicks
@@ -98,6 +104,36 @@ const App = (() => {
 
         // Restore saved settings to form
         restoreSettings();
+
+        // Mobile character switcher dropdown
+        const mobileCharSelect = document.getElementById('mobile-char-select');
+        if (mobileCharSelect) {
+            mobileCharSelect.addEventListener('change', () => {
+                switchCharacter(mobileCharSelect.value);
+            });
+        }
+
+        // Settings collapse toggle (mobile)
+        const btnToggleSettings = document.getElementById('btn-toggle-settings');
+        const settingsPanel = document.getElementById('settings-panel');
+        if (btnToggleSettings && settingsPanel) {
+            // Start collapsed on mobile
+            const isMobile = window.matchMedia('(max-width: 768px)').matches;
+            if (isMobile) {
+                settingsPanel.classList.add('collapsed');
+            }
+            btnToggleSettings.addEventListener('click', () => {
+                settingsPanel.classList.toggle('collapsed');
+            });
+            // Update on resize
+            window.matchMedia('(max-width: 768px)').addEventListener('change', (e) => {
+                if (e.matches) {
+                    settingsPanel.classList.add('collapsed');
+                } else {
+                    settingsPanel.classList.remove('collapsed');
+                }
+            });
+        }
 
         // Bind settings
         document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
@@ -140,6 +176,12 @@ const App = (() => {
         // Mark active character card
         const activeChar = Storage.getActiveCharacter();
         setActiveCard(activeChar);
+
+        // Sync mobile dropdown initial value
+        const mobileCharSelectInit = document.getElementById('mobile-char-select');
+        if (mobileCharSelectInit) {
+            mobileCharSelectInit.value = activeChar;
+        }
 
         // Show app
         finishLoading();
@@ -197,6 +239,12 @@ const App = (() => {
     function switchCharacter(characterId) {
         // Update cards
         setActiveCard(characterId);
+
+        // Sync mobile dropdown
+        const mobileCharSelect = document.getElementById('mobile-char-select');
+        if (mobileCharSelect) {
+            mobileCharSelect.value = characterId;
+        }
 
         // Play character voice if available
         const voice = CHARACTER_VOICES[characterId];
