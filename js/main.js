@@ -173,7 +173,7 @@ const App = (() => {
                 console.warn('Live2D failed to init, using fallback:', e);
             }
 
-            // Mark active character card
+            // Mark active character card and sync chat display
             const activeChar = Storage.getActiveCharacter();
             if (activeChar) {
                 setActiveCard(activeChar);
@@ -244,30 +244,36 @@ const App = (() => {
     }
 
     function switchCharacter(characterId) {
-        // Update cards
+        if (!characterId) return;
+
+        // 1. Update chat name+role FIRST (before anything else)
+        ChatManager.switchCharacter(characterId);
+
+        // 2. Update card UI
         setActiveCard(characterId);
 
-        // Sync mobile dropdown
+        // 3. Sync mobile dropdown
         const mobileCharSelect = document.getElementById('mobile-char-select');
         if (mobileCharSelect) {
             mobileCharSelect.value = characterId;
         }
 
-        // Play character voice if available
+        // 4. Play character voice
         const voice = CHARACTER_VOICES[characterId];
         if (voice) {
             voice.currentTime = 0;
             voice.play().catch(() => {});
         }
 
-        // Show bilingual subtitle
+        // 5. Show bilingual subtitle
         showSubtitle(characterId);
 
-        // Update chat
-        ChatManager.switchCharacter(characterId);
-
-        // Update Live2D
-        Live2DManager.switchCharacter(characterId);
+        // 6. Update Live2D (non-blocking, wrapped to prevent errors)
+        try {
+            Live2DManager.switchCharacter(characterId);
+        } catch (e) {
+            console.warn('Live2D switch error:', e);
+        }
     }
 
     function showSubtitle(characterId) {

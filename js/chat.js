@@ -419,8 +419,9 @@ const ChatManager = (() => {
         charRoleEl = document.getElementById('chat-char-role');
         clearBtn = document.getElementById('btn-clear-chat');
 
-        // Load saved character
-        currentCharacterId = Storage.getActiveCharacter();
+        // Load saved character (validate it exists)
+        const saved = Storage.getActiveCharacter();
+        currentCharacterId = CHARACTERS[saved] ? saved : 'amiya';
 
         // Load history
         messageHistory = Storage.getHistory(currentCharacterId);

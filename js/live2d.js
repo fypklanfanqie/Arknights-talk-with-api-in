@@ -5,9 +5,6 @@
 const Live2DManager = (() => {
     let app = null;
     let model = null;
-    let canvas = null;
-    let viewportEl = null;
-    let fallbackEl = null;
     let isInitialized = false;
     let currentChar = 'amiya';
     let mouseX = 0.5;
@@ -16,10 +13,9 @@ const Live2DManager = (() => {
     let targetMouseY = 0.5;
     let animationId = null;
 
-    // Model paths
+    // Model paths — only Amiya has a Live2D model
     const MODEL_PATHS = {
         'amiya': 'live2d/阿米娅(1).model3.json',
-        'la-pluma': null, // No Live2D for La Pluma
     };
 
     const FALLBACK_IMAGES = {
@@ -48,87 +44,112 @@ const Live2DManager = (() => {
         'zuole': 'Zuo Le',
     };
 
-    async function init() {
-        try {
-            canvas = document.getElementById('live2d-canvas');
-            viewportEl = document.getElementById('live2d-viewport');
-            fallbackEl = document.getElementById('live2d-fallback');
+    // --- DOM helpers (always query fresh to avoid stale refs) ---
+    function getCanvas() { return document.getElementById('live2d-canvas'); }
+    function getViewport() { return document.getElementById('live2d-viewport'); }
+    function getFallbackEl() { return document.getElementById('live2d-fallback'); }
+    function getFallbackImg() { return document.getElementById('live2d-fallback-img'); }
+    function getModelNameEl() { return document.getElementById('live2d-model-name'); }
 
-            if (!canvas || !viewportEl) {
-                console.warn('Live2D containers not found, showing fallback');
-                // Show fallback directly without canvas dependency
-                if (fallbackEl) {
-                    fallbackEl.classList.remove('hidden');
-                }
-                return;
-            }
-
-            // Check if PIXI and Live2D are available
-            if (typeof PIXI === 'undefined') {
-                console.warn('PIXI.js not loaded, Live2D disabled');
-                showFallback('amiya');
-                return;
-            }
-
-            if (!PIXI.Live2DModel) {
-                console.warn('pixi-live2d-display not loaded, Live2D disabled');
-                showFallback('amiya');
-                return;
-            }
-
+    // --- Show static fallback image ---
+    function showFallback(characterId) {
+        // Safely destroy any existing model
+        if (model) {
             try {
-                await setupPIXI();
-                bindMouseTracking();
-                isInitialized = true;
-                await loadModel('amiya');
-            } catch (e) {
-                console.error('Live2D init failed:', e);
-                showFallback('amiya');
-            }
-        } catch (e) {
-            console.error('Live2D init outer error:', e);
-            showFallback('amiya');
+                if (app && app.stage) app.stage.removeChild(model);
+                model.destroy();
+            } catch (e) { /* ignore */ }
+            model = null;
         }
+
+        // Hide canvas
+        const canvas = getCanvas();
+        if (canvas) canvas.style.display = 'none';
+
+        // Show fallback image
+        const fallbackEl = getFallbackEl();
+        const fallbackImg = getFallbackImg();
+        if (fallbackEl) fallbackEl.classList.remove('hidden');
+        if (fallbackImg) {
+            const src = FALLBACK_IMAGES[characterId] || FALLBACK_IMAGES['amiya'];
+            fallbackImg.src = src;
+        }
+
+        // Update model name
+        const nameEl = getModelNameEl();
+        if (nameEl) nameEl.textContent = MODEL_NAMES[characterId] || characterId.toUpperCase();
     }
 
-    async function setupPIXI() {
-        const rect = viewportEl.getBoundingClientRect();
-        const width = rect.width || 400;
-        const height = rect.height || 500;
+    // --- Main init ---
+    async function init() {
+        const canvas = getCanvas();
+        const viewportEl = getViewport();
 
+        // If containers don't exist, show fallback and exit
+        if (!canvas || !viewportEl) {
+            showFallback('amiya');
+            return;
+        }
+
+        // If PIXI or Live2D plugin not loaded, show fallback
+        if (typeof PIXI === 'undefined' || !PIXI.Live2DModel) {
+            showFallback('amiya');
+            return;
+        }
+
+        // Try to set up PIXI and load Amiya model
         try {
+            const rect = viewportEl.getBoundingClientRect();
+            const w = Math.max(rect.width, 100);
+            const h = Math.max(rect.height, 100);
+
             app = new PIXI.Application({
                 view: canvas,
-                width: width,
-                height: height,
+                width: w,
+                height: h,
                 backgroundAlpha: 0,
                 antialias: true,
                 resolution: window.devicePixelRatio || 1,
                 autoDensity: true,
             });
-        } catch (e) {
-            console.error('PIXI.Application creation failed:', e);
-            throw e;
-        }
 
-        // If app creation succeeded but renderer is null (WebGL not available)
-        if (!app || !app.renderer) {
-            throw new Error('PIXI renderer not available (WebGL may be unsupported)');
-        }
-
-        // Handle resize
-        const observer = new ResizeObserver(() => {
-            if (!app || !app.renderer) return;
-            const r = viewportEl.getBoundingClientRect();
-            app.renderer.resize(r.width, r.height);
-            if (model) {
-                model.x = r.width / 2;
-                model.y = r.height * 0.55;
-                const scale = Math.min(r.width / 800, r.height / 900) * 0.95;
-                model.scale.set(scale);
+            if (!app || !app.renderer) {
+                throw new Error('WebGL not available');
             }
-        });
-        observer.observe(viewportEl);
+
+            // Mouse tracking
+            viewportEl.addEventListener('mousemove', function (e) {
+                const r = viewportEl.getBoundingClientRect();
+                targetMouseX = (e.clientX - r.left) / r.width;
+                targetMouseY = (e.clientY - r.top) / r.height;
+            });
+            viewportEl.addEventListener('mouseleave', function () {
+                targetMouseX = 0.5;
+                targetMouseY = 0.5;
+            });
+
+            // Resize observer
+            new ResizeObserver(function () {
+                if (!app || !app.renderer) return;
+                const r = viewportEl.getBoundingClientRect();
+                if (r.width <= 0 || r.height <= 0) return;
+                app.renderer.resize(r.width, r.height);
+                if (model) {
+                    model.x = r.width / 2;
+                    model.y = r.height * 0.55;
+                    model.scale.set(Math.min(r.width / 800, r.height / 900) * 0.95);
+                }
+            }).observe(viewportEl);
+
+            isInitialized = true;
+
+            // Load Amiya model
+            await loadModel('amiya');
+
+        } catch (e) {
+            console.warn('Live2D init failed, using fallback:', e.message || e);
+            showFallback('amiya');
+        }
     }
 
     async function loadModel(characterId) {
@@ -139,161 +160,76 @@ const Live2DManager = (() => {
 
         currentChar = characterId;
 
-        // Check if this character has a Live2D model
+        // If this character has no Live2D model, show fallback
         const modelPath = MODEL_PATHS[characterId];
         if (!modelPath) {
             showFallback(characterId);
             return;
         }
 
-        // Remove old model safely
+        // Remove old model
         if (model) {
             try {
-                if (app && app.stage) {
-                    app.stage.removeChild(model);
-                }
+                if (app && app.stage) app.stage.removeChild(model);
                 model.destroy();
-            } catch (e) {
-                console.warn('Error removing old Live2D model:', e);
-            }
+            } catch (e) { /* ignore */ }
             model = null;
         }
 
-        // Hide fallback
-        fallbackEl.classList.add('hidden');
-        canvas.style.display = 'block';
+        // Show canvas, hide fallback
+        const canvas = getCanvas();
+        const fallbackEl = getFallbackEl();
+        if (fallbackEl) fallbackEl.classList.add('hidden');
+        if (canvas) canvas.style.display = 'block';
 
         try {
-            // Load model
             model = await PIXI.Live2DModel.from(modelPath);
+            if (!model) throw new Error('Model is null');
 
-            if (!model) throw new Error('Model loaded but is null');
-
-            const rect = viewportEl.getBoundingClientRect();
+            const viewportEl = getViewport();
+            const rect = viewportEl ? viewportEl.getBoundingClientRect() : { width: 400, height: 500 };
             model.x = rect.width / 2;
             model.y = rect.height * 0.55;
-            const scale = Math.min(rect.width / 800, rect.height / 900) * 0.95;
-            model.scale.set(scale);
-
-            // Enable mouse tracking via internal model parameters
-            model.on('hit', () => {});
+            model.scale.set(Math.min(rect.width / 800, rect.height / 900) * 0.95);
+            model.on('hit', function () {});
 
             app.stage.addChild(model);
 
-            // Update model name display
-            const modelNameEl = document.getElementById('live2d-model-name');
-            if (modelNameEl) {
-                modelNameEl.textContent = MODEL_NAMES[characterId] || characterId.toUpperCase();
-            }
+            const nameEl = getModelNameEl();
+            if (nameEl) nameEl.textContent = MODEL_NAMES[characterId] || characterId.toUpperCase();
 
-            // Start animation loop for smooth mouse tracking
             startAnimationLoop();
 
         } catch (e) {
-            console.error('Failed to load Live2D model:', e);
+            console.warn('Failed to load Live2D model:', e.message || e);
             showFallback(characterId);
         }
     }
 
-    function showFallback(characterId) {
-        try {
-            if (model) {
-                if (app && app.stage) {
-                    app.stage.removeChild(model);
-                }
-                model.destroy();
-                model = null;
-            }
-        } catch (e) {
-            console.warn('Error removing Live2D model:', e);
-            model = null;
-        }
-        if (canvas) canvas.style.display = 'none';
-        if (fallbackEl) {
-            fallbackEl.classList.remove('hidden');
-            const img = document.getElementById('live2d-fallback-img');
-            if (img) {
-                img.src = FALLBACK_IMAGES[characterId] || FALLBACK_IMAGES['amiya'];
-                img.onerror = function() {
-                    // If fallback image fails to load, try Amiya as last resort
-                    if (img.src !== FALLBACK_IMAGES['amiya']) {
-                        img.src = FALLBACK_IMAGES['amiya'];
-                    }
-                };
-            }
-        }
-        const modelNameEl = document.getElementById('live2d-model-name');
-        if (modelNameEl) {
-            modelNameEl.textContent = MODEL_NAMES[characterId] || characterId.toUpperCase();
-        }
-    }
-
-    function bindMouseTracking() {
-        viewportEl.addEventListener('mousemove', (e) => {
-            const rect = viewportEl.getBoundingClientRect();
-            targetMouseX = (e.clientX - rect.left) / rect.width;
-            targetMouseY = (e.clientY - rect.top) / rect.height;
-        });
-
-        viewportEl.addEventListener('mouseleave', () => {
-            targetMouseX = 0.5;
-            targetMouseY = 0.5;
-        });
-    }
-
     function startAnimationLoop() {
-        if (animationId) return;
-
+        if (animationId) cancelAnimationFrame(animationId);
         function animate() {
-            // Smooth follow
             mouseX += (targetMouseX - mouseX) * 0.08;
             mouseY += (targetMouseY - mouseY) * 0.08;
 
             if (model && model.internalModel && model.internalModel.coreModel) {
                 try {
-                    // Map mouse position to head angle parameters
-                    // ParamAngleX: vertical head rotation (-30 to 30)
-                    // ParamAngleY: horizontal head rotation (-30 to 30)
-                    // ParamAngleZ: head tilt (-30 to 30)
-                    const angleX = (mouseY - 0.5) * 30;
-                    const angleY = (mouseX - 0.5) * 30;
-                    const angleZ = (mouseX - 0.5) * -10;
-
                     const core = model.internalModel.coreModel;
-                    core.setParamFloat('ParamAngleX', angleX);
-                    core.setParamFloat('ParamAngleY', angleY);
-                    core.setParamFloat('ParamAngleZ', angleZ);
-
-                    // Breath parameter (idle breathing)
-                    const breath = Math.sin(Date.now() / 2000) * 0.5 + 0.5;
-                    core.setParamFloat('ParamBreath', breath);
-                } catch (e) {
-                    // Parameter might not exist on all models
-                }
+                    core.setParamFloat('ParamAngleX', (mouseY - 0.5) * 30);
+                    core.setParamFloat('ParamAngleY', (mouseX - 0.5) * 30);
+                    core.setParamFloat('ParamAngleZ', (mouseX - 0.5) * -10);
+                    core.setParamFloat('ParamBreath', Math.sin(Date.now() / 2000) * 0.5 + 0.5);
+                } catch (e) { /* ignore */ }
             }
-
             animationId = requestAnimationFrame(animate);
         }
         animate();
     }
 
     function switchCharacter(characterId) {
+        if (!characterId) return;
         loadModel(characterId);
     }
 
-    function resize() {
-        if (!app || !viewportEl) return;
-        const rect = viewportEl.getBoundingClientRect();
-        app.renderer.resize(rect.width, rect.height);
-        if (model) {
-            model.x = rect.width / 2;
-            model.y = rect.height * 0.55;
-            const scale = Math.min(rect.width / 800, rect.height / 900) * 0.95;
-            model.scale.set(scale);
-        }
-    }
-
-    window.addEventListener('resize', resize);
-
-    return { init, switchCharacter, resize };
+    return { init, switchCharacter };
 })();
