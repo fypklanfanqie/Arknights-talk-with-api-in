@@ -73,118 +73,125 @@ const App = (() => {
     let subtitleCnEl;
 
     async function init() {
-        // Cache subtitle elements
-        subtitleJpEl = document.getElementById('subtitle-jp');
-        subtitleCnEl = document.getElementById('subtitle-cn');
+        try {
+            // Cache subtitle elements
+            subtitleJpEl = document.getElementById('subtitle-jp');
+            subtitleCnEl = document.getElementById('subtitle-cn');
 
-        // Play loading audio
-        loadingAudio.play().catch(() => {});
+            // Play loading audio
+            loadingAudio.play().catch(() => {});
 
-        // Show loading animation
-        simulateLoading();
+            // Show loading animation
+            simulateLoading();
 
-        // Cache character card refs
-        characterCards = {
-            'amiya': document.getElementById('card-amiya'),
-            'eyjafjalla': document.getElementById('card-eyjafjalla'),
-            'goldenglow': document.getElementById('card-goldenglow'),
-            'mudrock': document.getElementById('card-mudrock'),
-            'la-pluma': document.getElementById('card-la-pluma'),
-            'logos': document.getElementById('card-logos'),
-            'honeyberry': document.getElementById('card-honeyberry'),
-            'haruka': document.getElementById('card-haruka'),
-            'wisdel': document.getElementById('card-wisdel'),
-            'zuole': document.getElementById('card-zuole'),
-        };
-
-        // Bind character card clicks
-        Object.entries(characterCards).forEach(([id, card]) => {
-            card.addEventListener('click', () => switchCharacter(id));
-        });
-
-        // Restore saved settings to form
-        restoreSettings();
-
-        // Mobile character switcher dropdown
-        const mobileCharSelect = document.getElementById('mobile-char-select');
-        if (mobileCharSelect) {
-            mobileCharSelect.addEventListener('change', () => {
-                switchCharacter(mobileCharSelect.value);
-            });
-        }
-
-        // Settings collapse toggle (mobile)
-        const btnToggleSettings = document.getElementById('btn-toggle-settings');
-        const settingsPanel = document.getElementById('settings-panel');
-        if (btnToggleSettings && settingsPanel) {
-            // Start collapsed on mobile
-            const isMobile = window.matchMedia('(max-width: 768px)').matches;
-            if (isMobile) {
-                settingsPanel.classList.add('collapsed');
-            }
-            btnToggleSettings.addEventListener('click', () => {
-                settingsPanel.classList.toggle('collapsed');
-            });
-            // Update on resize
-            window.matchMedia('(max-width: 768px)').addEventListener('change', (e) => {
-                if (e.matches) {
-                    settingsPanel.classList.add('collapsed');
+            // Cache character card refs (skip null refs)
+            const cardIds = ['amiya', 'eyjafjalla', 'goldenglow', 'mudrock', 'la-pluma', 'logos', 'honeyberry', 'haruka', 'wisdel', 'zuole'];
+            cardIds.forEach(id => {
+                const card = document.getElementById('card-' + id);
+                if (card) {
+                    characterCards[id] = card;
+                    card.addEventListener('click', () => switchCharacter(id));
                 } else {
-                    settingsPanel.classList.remove('collapsed');
+                    console.warn('Character card not found: card-' + id);
                 }
             });
-        }
 
-        // Bind settings
-        document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
-        document.getElementById('btn-toggle-pw').addEventListener('click', togglePassword);
+            // Restore saved settings to form
+            restoreSettings();
 
-        // Bind provider dropdown → auto-fill base URL
-        const providerSelect = document.getElementById('api-provider');
-        const apiBaseInput = document.getElementById('api-base');
-        providerSelect.addEventListener('change', () => {
-            const val = providerSelect.value;
-            if (val !== 'custom') {
-                apiBaseInput.value = val;
+            // Mobile character switcher dropdown
+            const mobileCharSelect = document.getElementById('mobile-char-select');
+            if (mobileCharSelect) {
+                mobileCharSelect.addEventListener('change', () => {
+                    switchCharacter(mobileCharSelect.value);
+                });
             }
-        });
 
-        // Bind model dropdown → auto-fill model input
-        const modelSelect = document.getElementById('api-model-select');
-        const modelInput = document.getElementById('api-model');
-        modelSelect.addEventListener('change', () => {
-            const val = modelSelect.value;
-            if (val !== 'custom') {
-                modelInput.value = val;
-            } else {
-                modelInput.value = '';
+            // Settings collapse toggle (mobile)
+            const btnToggleSettings = document.getElementById('btn-toggle-settings');
+            const settingsPanel = document.getElementById('settings-panel');
+            if (btnToggleSettings && settingsPanel) {
+                const isMobile = window.matchMedia('(max-width: 768px)').matches;
+                if (isMobile) {
+                    settingsPanel.classList.add('collapsed');
+                }
+                btnToggleSettings.addEventListener('click', () => {
+                    settingsPanel.classList.toggle('collapsed');
+                });
+                window.matchMedia('(max-width: 768px)').addEventListener('change', (e) => {
+                    if (e.matches) {
+                        settingsPanel.classList.add('collapsed');
+                    } else {
+                        settingsPanel.classList.remove('collapsed');
+                    }
+                });
             }
-        });
 
-        // Initialize sub-modules
-        ChatManager.init();
-        MusicPlayer.init();
-        TiltEffect.init();
+            // Bind settings (null-safe)
+            const btnSave = document.getElementById('btn-save-settings');
+            const btnTogglePw = document.getElementById('btn-toggle-pw');
+            if (btnSave) btnSave.addEventListener('click', saveSettings);
+            if (btnTogglePw) btnTogglePw.addEventListener('click', togglePassword);
 
-        // Initialize Live2D (async)
-        try {
-            await Live2DManager.init();
+            // Bind provider dropdown → auto-fill base URL
+            const providerSelect = document.getElementById('api-provider');
+            const apiBaseInput = document.getElementById('api-base');
+            if (providerSelect && apiBaseInput) {
+                providerSelect.addEventListener('change', () => {
+                    if (providerSelect.value !== 'custom') {
+                        apiBaseInput.value = providerSelect.value;
+                    }
+                });
+            }
+
+            // Bind model dropdown → auto-fill model input
+            const modelSelect = document.getElementById('api-model-select');
+            const modelInput = document.getElementById('api-model');
+            if (modelSelect && modelInput) {
+                modelSelect.addEventListener('change', () => {
+                    if (modelSelect.value !== 'custom') {
+                        modelInput.value = modelSelect.value;
+                    } else {
+                        modelInput.value = '';
+                    }
+                });
+            }
+
+            // Initialize sub-modules
+            ChatManager.init();
+            MusicPlayer.init();
+            TiltEffect.init();
+
+            // Initialize Live2D with timeout (max 8s)
+            try {
+                const live2dPromise = Live2DManager.init();
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Live2D init timeout')), 8000)
+                );
+                await Promise.race([live2dPromise, timeoutPromise]);
+            } catch (e) {
+                console.warn('Live2D failed to init, using fallback:', e);
+            }
+
+            // Mark active character card
+            const activeChar = Storage.getActiveCharacter();
+            if (activeChar) {
+                setActiveCard(activeChar);
+            }
+
+            // Sync mobile dropdown initial value
+            const mobileCharSelectInit = document.getElementById('mobile-char-select');
+            if (mobileCharSelectInit && activeChar) {
+                mobileCharSelectInit.value = activeChar;
+            }
+
+            // Show app
+            finishLoading();
         } catch (e) {
-            console.warn('Live2D failed to init, using fallback:', e);
+            console.error('App init error:', e);
+            // Force dismiss loading screen even on error
+            finishLoading();
         }
-
-        // Mark active character card
-        const activeChar = Storage.getActiveCharacter();
-        setActiveCard(activeChar);
-
-        // Sync mobile dropdown initial value
-        const mobileCharSelectInit = document.getElementById('mobile-char-select');
-        if (mobileCharSelectInit) {
-            mobileCharSelectInit.value = activeChar;
-        }
-
-        // Show app
-        finishLoading();
     }
 
     function simulateLoading() {
@@ -215,8 +222,8 @@ const App = (() => {
 
         // Ensure 100%
         if (window._loadingInterval) clearInterval(window._loadingInterval);
-        bar.style.width = '100%';
-        percent.textContent = '100';
+        if (bar) bar.style.width = '100%';
+        if (percent) percent.textContent = '100';
 
         // Stop loading audio with fade
         const fadeOut = setInterval(() => {
@@ -229,10 +236,10 @@ const App = (() => {
             }
         }, 50);
 
-        // Brief delay for the 100% to render
+        // Brief delay for the 100% to render, then dismiss
         setTimeout(() => {
-            loadingScreen.classList.add('hidden');
-            appContainer.classList.add('ready');
+            if (loadingScreen) loadingScreen.classList.add('hidden');
+            if (appContainer) appContainer.classList.add('ready');
         }, 400);
     }
 

@@ -49,30 +49,40 @@ const Live2DManager = (() => {
     };
 
     async function init() {
-        canvas = document.getElementById('live2d-canvas');
-        viewportEl = document.getElementById('live2d-viewport');
-        fallbackEl = document.getElementById('live2d-fallback');
-
-        // Check if PIXI and Live2D are available
-        if (typeof PIXI === 'undefined') {
-            console.warn('PIXI.js not loaded, Live2D disabled');
-            showFallback('amiya');
-            return;
-        }
-
-        if (!PIXI.Live2DModel) {
-            console.warn('pixi-live2d-display not loaded, Live2D disabled');
-            showFallback('amiya');
-            return;
-        }
-
         try {
-            await setupPIXI();
-            bindMouseTracking();
-            isInitialized = true;
-            await loadModel('amiya');
+            canvas = document.getElementById('live2d-canvas');
+            viewportEl = document.getElementById('live2d-viewport');
+            fallbackEl = document.getElementById('live2d-fallback');
+
+            if (!canvas || !viewportEl) {
+                console.warn('Live2D containers not found');
+                return;
+            }
+
+            // Check if PIXI and Live2D are available
+            if (typeof PIXI === 'undefined') {
+                console.warn('PIXI.js not loaded, Live2D disabled');
+                showFallback('amiya');
+                return;
+            }
+
+            if (!PIXI.Live2DModel) {
+                console.warn('pixi-live2d-display not loaded, Live2D disabled');
+                showFallback('amiya');
+                return;
+            }
+
+            try {
+                await setupPIXI();
+                bindMouseTracking();
+                isInitialized = true;
+                await loadModel('amiya');
+            } catch (e) {
+                console.error('Live2D init failed:', e);
+                showFallback('amiya');
+            }
         } catch (e) {
-            console.error('Live2D init failed:', e);
+            console.error('Live2D init outer error:', e);
             showFallback('amiya');
         }
     }
@@ -82,19 +92,29 @@ const Live2DManager = (() => {
         const width = rect.width || 400;
         const height = rect.height || 500;
 
-        app = new PIXI.Application({
-            view: canvas,
-            width: width,
-            height: height,
-            backgroundAlpha: 0,
-            antialias: true,
-            resolution: window.devicePixelRatio || 1,
-            autoDensity: true,
-        });
+        try {
+            app = new PIXI.Application({
+                view: canvas,
+                width: width,
+                height: height,
+                backgroundAlpha: 0,
+                antialias: true,
+                resolution: window.devicePixelRatio || 1,
+                autoDensity: true,
+            });
+        } catch (e) {
+            console.error('PIXI.Application creation failed:', e);
+            throw e;
+        }
+
+        // If app creation succeeded but renderer is null (WebGL not available)
+        if (!app || !app.renderer) {
+            throw new Error('PIXI renderer not available (WebGL may be unsupported)');
+        }
 
         // Handle resize
         const observer = new ResizeObserver(() => {
-            if (!app) return;
+            if (!app || !app.renderer) return;
             const r = viewportEl.getBoundingClientRect();
             app.renderer.resize(r.width, r.height);
             if (model) {
