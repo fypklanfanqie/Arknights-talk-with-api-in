@@ -78,10 +78,7 @@ const TTSManager = (() => {
 
         // 验证配置
         // 默认使用公共代理，用户可在设置中覆盖
-        const actualProxy = proxyUrl;
-        if (!actualProxy) {
-            throw new Error('请先在设置中填入 TTS 代理地址 (Cloudflare Worker URL)');
-        }
+        const actualProxy = proxyUrl || 'https://tts-proxy.lanfanqie.workers.dev';
         console.log('[TTS] 代理:', actualProxy);
 
         if (!hasCredentials()) {

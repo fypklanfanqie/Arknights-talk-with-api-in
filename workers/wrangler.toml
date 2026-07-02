@@ -1,0 +1,3 @@
+name = "tts-proxy"
+main = "tts-proxy.js"
+compatibility_date = "2025-07-01"
