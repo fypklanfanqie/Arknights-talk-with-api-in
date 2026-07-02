@@ -11,6 +11,11 @@ const Storage = (() => {
         API_MODEL: 'api_model',
         ACTIVE_CHAR: 'active_character',
         VOLUME: 'volume',
+        TTS_API_KEY: 'tts_api_key',
+        TTS_APP_ID: 'tts_app_id',
+        TTS_ACCESS_KEY: 'tts_access_key',
+        TTS_LANGUAGE: 'tts_language',
+        TTS_PROXY_URL: 'tts_proxy_url',
     };
 
     function key(k) {
@@ -107,6 +112,42 @@ const Storage = (() => {
         /** Set volume */
         setVolume(vol) {
             this.set(KEYS.VOLUME, vol);
+        },
+
+        /** Get TTS config */
+        getTtsConfig() {
+            return {
+                apiKey: this.get(KEYS.TTS_API_KEY) || '',
+                appId: this.get(KEYS.TTS_APP_ID) || '',
+                accessKey: this.get(KEYS.TTS_ACCESS_KEY) || '',
+            };
+        },
+
+        /** Save TTS config */
+        setTtsConfig(config) {
+            if (config.apiKey !== undefined) this.set(KEYS.TTS_API_KEY, config.apiKey);
+            if (config.appId !== undefined) this.set(KEYS.TTS_APP_ID, config.appId);
+            if (config.accessKey !== undefined) this.set(KEYS.TTS_ACCESS_KEY, config.accessKey);
+        },
+
+        /** Get TTS language preference ('zh' or 'ja') */
+        getTtsLanguage() {
+            return this.get(KEYS.TTS_LANGUAGE) || 'zh';
+        },
+
+        /** Set TTS language preference */
+        setTtsLanguage(lang) {
+            this.set(KEYS.TTS_LANGUAGE, lang);
+        },
+
+        /** Get TTS proxy URL */
+        getTtsProxyUrl() {
+            return this.get(KEYS.TTS_PROXY_URL) || '';
+        },
+
+        /** Set TTS proxy URL */
+        setTtsProxyUrl(url) {
+            this.set(KEYS.TTS_PROXY_URL, url || '');
         },
 
         KEYS,

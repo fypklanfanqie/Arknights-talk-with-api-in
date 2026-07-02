@@ -129,6 +129,7 @@ const App = (() => {
 
             // Restore saved settings to form
             restoreSettings();
+            restoreTtsSettings();
 
             // Mobile character switcher dropdown
             const mobileCharSelect = document.getElementById('mobile-char-select');
@@ -188,7 +189,25 @@ const App = (() => {
                 });
             }
 
+            // Bind TTS settings
+            const btnSaveTts = document.getElementById('btn-save-tts-settings');
+            if (btnSaveTts) btnSaveTts.addEventListener('click', saveTtsSettings);
+
+            // Bind TTS password toggle buttons
+            const btnToggleTtsPw = document.querySelector('.btn-toggle-tts-pw');
+            const btnToggleTtsAkPw = document.querySelector('.btn-toggle-tts-ak-pw');
+            if (btnToggleTtsPw) btnToggleTtsPw.addEventListener('click', () => toggleTtsPassword('tts-api-key', btnToggleTtsPw));
+            if (btnToggleTtsAkPw) btnToggleTtsAkPw.addEventListener('click', () => toggleTtsPassword('tts-access-key', btnToggleTtsAkPw));
+
+            // Bind language toggle button
+            const btnLangToggle = document.getElementById('btn-lang-toggle');
+            if (btnLangToggle) {
+                btnLangToggle.addEventListener('click', toggleTtsLanguage);
+                updateLangToggleDisplay();
+            }
+
             // Initialize sub-modules
+            TTSManager.init();
             ChatManager.init();
             MusicPlayer.init();
             TiltEffect.init();
@@ -368,6 +387,67 @@ const App = (() => {
 
         Storage.setApiConfig(config);
         showToast('CONFIG SAVED // Settings updated', 'success');
+    }
+
+    /* ============================================================
+       TTS Settings (火山引擎 + Cloudflare Worker)
+       ============================================================ */
+    function restoreTtsSettings() {
+        const ttsConfig = Storage.getTtsConfig();
+        const proxyUrl = Storage.getTtsProxyUrl();
+        document.getElementById('tts-proxy-url').value = proxyUrl || '';
+        document.getElementById('tts-api-key').value = ttsConfig.apiKey || '';
+        document.getElementById('tts-app-id').value = ttsConfig.appId || '';
+        document.getElementById('tts-access-key').value = ttsConfig.accessKey || '';
+    }
+
+    function saveTtsSettings() {
+        const proxyUrl = document.getElementById('tts-proxy-url').value.trim();
+        const apiKey = document.getElementById('tts-api-key').value.trim();
+        const appId = document.getElementById('tts-app-id').value.trim();
+        const accessKey = document.getElementById('tts-access-key').value.trim();
+
+        Storage.setTtsProxyUrl(proxyUrl);
+        Storage.setTtsConfig({ apiKey, appId, accessKey });
+        TTSManager.reloadConfig();
+
+        const status = document.getElementById('tts-settings-status');
+        if (status) {
+            status.textContent = 'TTS 设置已保存';
+            status.className = 'settings-status success';
+            setTimeout(() => {
+                status.textContent = '';
+                status.className = 'settings-status';
+            }, 2000);
+        }
+    }
+
+    function toggleTtsPassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+    }
+
+    /* ============================================================
+       Language Toggle (TTS Voice Language: zh ↔ ja)
+       ============================================================ */
+    function toggleTtsLanguage() {
+        const currentLang = TTSManager.getLanguage();
+        const newLang = currentLang === 'zh' ? 'ja' : 'zh';
+        TTSManager.setLanguage(newLang);
+        updateLangToggleDisplay();
+        showToast(`TTS 语音语言切换为: ${newLang === 'zh' ? '中文' : '日本語'}`, 'success');
+    }
+
+    function updateLangToggleDisplay() {
+        const btn = document.getElementById('btn-lang-toggle');
+        const langChar = document.getElementById('lang-char');
+        if (!btn || !langChar) return;
+
+        const lang = TTSManager.getLanguage();
+        btn.setAttribute('data-lang', lang);
+        langChar.textContent = lang === 'zh' ? '中' : '日';
     }
 
     function togglePassword() {

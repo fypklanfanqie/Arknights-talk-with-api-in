@@ -29,6 +29,9 @@ yarn.lock
 # Claude / local config
 .claude/
 
+# Cloudflare deployment
+.wrangler/
+
 # Temporary files
 *.tmp
 .cache/

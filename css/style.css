@@ -983,6 +983,18 @@ button {
     letter-spacing: 1px;
 }
 
+/* --- Message Bubble Row (bubble + TTS button) --- */
+.message-bubble-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.message-bubble-row .message-bubble {
+    flex: 1;
+    min-width: 0;
+}
+
 /* --- Message Bubbles --- */
 .message {
     display: flex;
@@ -1085,6 +1097,173 @@ button {
 
 .message.user .message-time {
     text-align: right;
+}
+
+/* --- TTS Play Button --- */
+.btn-tts-play {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--gold-dim);
+    background: rgba(21, 21, 31, 0.8);
+    color: var(--gold);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+    align-self: flex-end;
+    margin-bottom: 2px;
+    backdrop-filter: blur(4px);
+}
+
+.btn-tts-play:hover {
+    background: rgba(201, 168, 124, 0.15);
+    border-color: var(--gold-bright);
+    color: var(--gold-bright);
+    box-shadow: 0 0 12px var(--gold-glow);
+    transform: scale(1.05);
+}
+
+.btn-tts-play:active {
+    transform: scale(0.95);
+}
+
+.btn-tts-play.loading {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    animation: tts-pulse 1s var(--ease-in-out) infinite;
+    pointer-events: none;
+}
+
+.btn-tts-play.translating {
+    border-color: var(--gold);
+    color: var(--gold);
+    animation: tts-pulse 0.8s var(--ease-in-out) infinite;
+    pointer-events: none;
+}
+
+.btn-tts-play.playing {
+    border-color: var(--success);
+    color: var(--success);
+    background: rgba(90, 139, 90, 0.15);
+    box-shadow: 0 0 12px rgba(90, 139, 90, 0.3);
+}
+
+.btn-tts-play .playing-icon { display: none; }
+.btn-tts-play.playing .play-icon { display: none; }
+.btn-tts-play.playing .playing-icon { display: block; }
+
+@keyframes tts-pulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(91, 140, 189, 0.2); }
+    50% { box-shadow: 0 0 16px rgba(91, 140, 189, 0.5); }
+}
+
+/* --- TTS Progress Indicator --- */
+.tts-progress {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gold-dim);
+    padding: 4px 0 4px 2px;
+    letter-spacing: 1.5px;
+    animation: progress-blink 1.2s var(--ease-in-out) infinite;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tts-progress::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--gold-dim);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    animation: status-pulse 1.2s var(--ease-in-out) infinite;
+}
+@keyframes progress-blink {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* Replace play icon with equalizer when playing */
+.btn-tts-play.playing svg path {
+    d: path("M3 17h2V7H3v10zm4-10v10h2V7H7zm4 10h2V3h-2v14zm4-10v10h2V7h-2zm4-4v18h2V3h-2z");
+}
+
+/* --- Language Toggle Button --- */
+.btn-lang-toggle {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--border);
+    color: var(--gold-dim);
+    cursor: pointer;
+    padding: 5px 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all var(--transition-fast);
+    clip-path: var(--input-clip);
+    white-space: nowrap;
+}
+
+.btn-lang-toggle:hover {
+    color: var(--gold-bright);
+    border-color: var(--gold-dim);
+    box-shadow: 0 0 10px var(--gold-glow);
+    transform: translateY(-1px);
+}
+
+.btn-lang-toggle:active {
+    transform: translateY(0) scale(0.97);
+}
+
+.btn-lang-toggle .lang-char {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.btn-lang-toggle .lang-arrow {
+    font-size: 10px;
+    opacity: 0.6;
+}
+
+.btn-lang-toggle[data-lang="ja"] {
+    border-color: var(--accent-blue-dim);
+    color: var(--accent-blue);
+}
+
+.btn-lang-toggle[data-lang="ja"]:hover {
+    color: var(--accent-blue);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 10px rgba(91, 140, 189, 0.25);
+}
+
+/* --- Settings Divider --- */
+.settings-divider {
+    margin: 16px 0 10px;
+    padding: 6px 0;
+    border-top: 1px solid var(--acrylic-border);
+    text-align: center;
+}
+
+.settings-divider span {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    background: var(--bg-card);
+    padding: 0 10px;
+}
+
+/* --- Label Hint --- */
+.label-hint {
+    font-size: 9px;
+    color: var(--text-dim);
+    font-weight: 300;
+    letter-spacing: 0.5px;
 }
 
 /* --- Typing Indicator --- */

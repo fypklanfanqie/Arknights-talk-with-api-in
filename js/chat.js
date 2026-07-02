@@ -471,6 +471,176 @@ const ChatManager = (() => {
         return html;
     }
 
+    /* ============================================================
+       TTS Play Button
+       ============================================================ */
+    /**
+     * Translate Chinese text to Japanese using the configured LLM API
+     */
+    async function translateToJapanese(text) {
+        const config = Storage.getApiConfig();
+        const url = `${config.baseUrl.replace(/\/$/, '')}/chat/completions`;
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${config.apiKey}`,
+            },
+            body: JSON.stringify({
+                model: config.model || 'gpt-4o',
+                messages: [
+                    {
+                        role: 'system',
+                        content: '你是一个专业翻译。将中文翻译成自然流畅的日语。只输出日语译文，不要加任何解释或括号备注。保持原文的语气和风格。'
+                    },
+                    { role: 'user', content: text }
+                ],
+                temperature: 0.3,
+                max_tokens: 1024,
+            }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            let errMsg = `HTTP ${response.status}`;
+            try { errMsg = JSON.parse(errText).error?.message || errMsg; } catch {}
+            throw new Error('翻译失败: ' + errMsg);
+        }
+
+        const data = await response.json();
+        const translated = data.choices?.[0]?.message?.content?.trim();
+        if (!translated) throw new Error('翻译返回空内容');
+        console.log('[TTS] 翻译:', text.slice(0, 30) + '... →', translated.slice(0, 30) + '...');
+        return translated;
+    }
+
+    /**
+     * Clean text for TTS: remove parenthetical content like （动作）or (emotion)
+     */
+    function cleanTtsText(text) {
+        return text
+            .replace(/[（(][^）)]*[）)]/g, '')   // 去掉中文/英文括号内容
+            .replace(/\s+/g, ' ')                // 合并多余空格
+            .trim();
+    }
+
+    function createTtsPlayButton(text) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-tts-play';
+        btn.title = '播放语音';
+        btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M8 5v14l11-7z" fill="currentColor"/>
+        </svg>`;
+
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+
+            // If currently playing, stop
+            if (TTSManager.getIsPlaying()) {
+                TTSManager.stopAll();
+                btn.classList.remove('playing');
+                hideTtsProgress();
+                return;
+            }
+
+            // Clean text for TTS (remove action descriptions in parentheses)
+            const cleanText = cleanTtsText(text);
+            const lang = TTSManager.getLanguage();
+
+            // Progress indicator below the message
+            const messageEl = btn.closest('.message');
+            let progressEl = null;
+
+            function showProgress(msg) {
+                if (!progressEl) {
+                    progressEl = document.createElement('div');
+                    progressEl.className = 'tts-progress';
+                    messageEl.appendChild(progressEl);
+                }
+                progressEl.textContent = msg;
+            }
+
+            function hideProgress() {
+                if (progressEl) { progressEl.remove(); progressEl = null; }
+            }
+
+            // Start playback
+            btn.classList.add('loading');
+            btn.disabled = true;
+            showProgress('合成中...');
+
+            const subtitleJp = document.getElementById('subtitle-jp');
+            const subtitleCn = document.getElementById('subtitle-cn');
+
+            try {
+                let speakText = cleanText;
+
+                // Japanese mode: translate Chinese → Japanese first
+                if (lang === 'ja' && cleanText) {
+                    btn.classList.remove('loading');
+                    btn.classList.add('translating');
+                    showProgress('翻訳中...');
+                    if (subtitleJp) subtitleJp.textContent = '翻訳中...';
+                    if (subtitleCn) subtitleCn.textContent = cleanText;
+
+                    try {
+                        speakText = await translateToJapanese(cleanText);
+                    } catch (transErr) {
+                        console.warn('[Chat] Translation failed, using original:', transErr);
+                        speakText = cleanText;
+                    }
+                    btn.classList.remove('translating');
+                    btn.classList.add('loading');
+                    showProgress('合成中...');
+                }
+
+                // Update subtitle
+                if (subtitleJp && subtitleCn) {
+                    if (lang === 'ja') {
+                        subtitleJp.textContent = speakText;
+                        subtitleCn.textContent = cleanText;
+                    } else {
+                        subtitleJp.textContent = speakText;
+                        subtitleCn.textContent = '';
+                    }
+                }
+
+                showProgress('再生中...');
+                await TTSManager.speak(speakText);
+                hideProgress();
+                btn.classList.remove('loading');
+                btn.classList.add('playing');
+                setTimeout(() => {
+                    btn.classList.remove('playing');
+                    btn.disabled = false;
+                }, 500);
+            } catch (err) {
+                hideProgress();
+                console.error('[Chat] TTS playback failed:', err);
+                btn.classList.remove('loading', 'playing', 'translating');
+                btn.disabled = false;
+                const errMsg = err.message || '未知错误';
+                if (errMsg.includes('请先') || errMsg.includes('API 凭据')) {
+                    App.showToast('⚠️ ' + errMsg, 'error');
+                } else {
+                    App.showToast('🔊 TTS 失败: ' + errMsg, 'error');
+                }
+            }
+        });
+
+        // Cleanup progress on outside stop
+        function hideTtsProgress() {
+            const messageEl = btn.closest('.message');
+            if (messageEl) {
+                const p = messageEl.querySelector('.tts-progress');
+                if (p) p.remove();
+            }
+        }
+
+        return btn;
+    }
+
     function init() {
         messagesContainer = document.getElementById('chat-messages');
         inputEl = document.getElementById('chat-input');
@@ -594,16 +764,27 @@ const ChatManager = (() => {
         sender.className = 'message-sender';
         sender.textContent = role === 'user' ? 'DOCTOR // YOU' : `OPERATOR // ${CHARACTERS[currentCharacterId].name.toUpperCase()}`;
 
+        const bubbleRow = document.createElement('div');
+        bubbleRow.className = 'message-bubble-row';
+
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
         bubble.innerHTML = renderLatex(content);
+
+        bubbleRow.appendChild(bubble);
+
+        // Add TTS play button for all character messages
+        if (role !== 'user') {
+            const playBtn = createTtsPlayButton(content);
+            bubbleRow.appendChild(playBtn);
+        }
 
         const time = document.createElement('div');
         time.className = 'message-time';
         time.textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
         div.appendChild(sender);
-        div.appendChild(bubble);
+        div.appendChild(bubbleRow);
         div.appendChild(time);
         messagesContainer.appendChild(div);
 
@@ -752,8 +933,11 @@ const ChatManager = (() => {
             }
         }
 
-        // Remove streaming bubble, add final message
-        bubble.parentElement.remove();
+        // Remove streaming bubble (it was inside bubbleRow inside .message div)
+        const messageDiv = bubble.closest('.message');
+        if (messageDiv) {
+            messageDiv.remove();
+        }
         return fullContent || '(empty response)';
     }
 
@@ -768,12 +952,16 @@ const ChatManager = (() => {
         sender.className = 'message-sender';
         sender.textContent = `OPERATOR // ${CHARACTERS[currentCharacterId].name.toUpperCase()}`;
 
+        const bubbleRow = document.createElement('div');
+        bubbleRow.className = 'message-bubble-row';
+
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
         bubble.innerHTML = '';
 
+        bubbleRow.appendChild(bubble);
         div.appendChild(sender);
-        div.appendChild(bubble);
+        div.appendChild(bubbleRow);
         messagesContainer.appendChild(div);
 
         scrollToBottom();
