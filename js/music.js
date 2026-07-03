@@ -82,8 +82,22 @@ const MusicPlayer = (() => {
         // Build playlist UI
         renderPlaylist();
 
+        // Set waveform bar heights and delays dynamically (replaces 20 nth-child CSS rules)
+        initWaveform();
+
         // Load first track (don't autoplay — browser policy)
         loadTrack(0);
+    }
+
+    function initWaveform() {
+        const waveform = document.querySelector('.music-waveform');
+        if (!waveform) return;
+        const bars = waveform.querySelectorAll('span');
+        const heights = [35, 60, 45, 80, 30, 55, 40, 70, 25, 50, 65, 35, 75, 45, 60, 30, 55, 40, 70, 50];
+        bars.forEach((bar, i) => {
+            bar.style.height = heights[i % heights.length] + '%';
+            bar.style.animationDelay = (i * 0.05 % 0.3).toFixed(2) + 's';
+        });
     }
 
     function renderPlaylist() {

@@ -3,29 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="罗德岛通讯终端 - Arknights Talk Terminal">
+    <meta name="description" content="罗德岛通讯终端 — Arknights 同人角色扮演聊天，支持多角色 LLM 对话、Live2D 展示与 TTS 语音合成">
+    <meta name="theme-color" content="#0a0a0f">
     <meta http-equiv="Cache-Control" content="public, max-age=86400">
+
+    <!-- Open Graph / Social -->
+    <meta property="og:title" content="RHODES ISLAND // TERMINAL">
+    <meta property="og:description" content="明日方舟同人通讯终端 — 与罗德岛干员进行角色扮演对话">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="zh_CN">
+
     <title>RHODES ISLAND // TERMINAL</title>
 
-    <!-- Preload critical assets -->
+    <!-- DNS prefetch + preconnect for CDN origins -->
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Preload critical font assets (only the primary weight) -->
     <link rel="preload" as="font" href="fonts/BENDER.OTF" type="font/opentype" crossorigin>
     <link rel="preload" as="font" href="fonts/BENDER-LIGHT-ITALIC.OTF" type="font/opentype" crossorigin>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts (subset for zh-CN) -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
 
-    <!-- PIXI.js -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
+    <!-- PIXI.js (deferred — not critical for first paint) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
 
     <!-- Live2D Cubism Core (jsDelivr mirror — official CDN blocks no-referrer requests) -->
-    <script src="https://cdn.jsdelivr.net/npm/live2dcubismcore@1.0.2/live2dcubismcore.min.js"
+    <script defer src="https://cdn.jsdelivr.net/npm/live2dcubismcore@1.0.2/live2dcubismcore.min.js"
             onerror="console.warn('CubismCore CDN failed, trying fallback...');var s=document.createElement('script');s.src='https://s4.zstatic.net/npm/live2dcubismcore@1.0.2/live2dcubismcore.min.js';document.head.appendChild(s);">
     </script>
 
     <!-- pixi-live2d-display (registers as PIXI.live2d.Live2DModel) -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js" crossorigin="anonymous"></script>
 
     <!-- KaTeX for math rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -34,11 +48,26 @@
 </head>
 <body>
 
+    <!-- Skip to main content (accessibility) -->
+    <a href="#chat-input" class="skip-link" aria-label="跳转到聊天输入框">跳转到聊天区域</a>
+
     <!-- Global atmosphere overlays -->
     <div id="prts-grid"></div>
     <div id="grain-overlay"></div>
     <div id="scanlines"></div>
     <div id="vignette"></div>
+
+    <!-- 官网动效 · 几何引导线（加载时动画位移，加载完成后渐隐） -->
+    <div id="geo-guides" aria-hidden="true">
+        <span class="geo-guide-h"></span>
+        <span class="geo-guide-v"></span>
+    </div>
+
+    <!-- 官网动效 · 右侧面板滚动暗示 -->
+    <div id="scroll-hint" aria-hidden="true">
+        <span>OPERATORS</span>
+        <div class="scroll-hint-arrow"></div>
+    </div>
 
     <!-- Loading Screen -->
     <div id="loading-screen">
@@ -52,14 +81,15 @@
     </div>
 
     <!-- Main Container -->
-    <div id="app-container">
+    <div id="app-container" role="application" aria-label="罗德岛通讯终端">
 
         <!-- ============ LEFT PANEL: Live2D + Music ============ -->
-        <div id="left-panel">
+        <div id="left-panel" role="complementary" aria-label="Live2D 展示与音乐播放器">
             <!-- Live2D Viewport -->
-            <div id="live2d-container">
+            <div id="live2d-container" role="img" aria-label="干员 Live2D 动态展示">
                 <div class="panel-label">RHODES ISLAND // LIVE2D</div>
                 <div id="live2d-viewport">
+                    <div class="live2d-watermark" aria-hidden="true">ARKNIGHTS</div>
                     <div class="hud-corners" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
                     <div class="hud-reticle" aria-hidden="true"></div>
                     <canvas id="live2d-canvas"></canvas>
@@ -118,8 +148,8 @@
         </div>
 
         <!-- ============ MIDDLE PANEL: Chat ============ -->
-        <div id="middle-panel">
-            <div id="chat-container">
+        <div id="middle-panel" role="main" aria-label="聊天对话区域">
+            <div id="chat-container" aria-live="polite">
                 <!-- Rotating background slideshow -->
                 <div id="chat-bg" aria-hidden="true">
                     <div class="chat-bg-layer active"></div>
@@ -159,7 +189,7 @@
                     </div>
                 </div>
 
-                <div class="chat-messages" id="chat-messages">
+                <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-label="聊天消息">
                     <div class="chat-welcome">
                         <div class="welcome-line">[罗德岛通讯 - 频道已开启]</div>
                         <div class="welcome-sub">选择角色，开始对话...</div>
@@ -186,7 +216,7 @@
         </div>
 
         <!-- ============ RIGHT PANEL: Settings + Character Switch ============ -->
-        <div id="right-panel">
+        <div id="right-panel" role="navigation" aria-label="设置与干员选择">
             <!-- API Settings (top) -->
             <div id="settings-panel">
                 <div class="panel-label">SYSTEM // CONFIG</div>
@@ -278,7 +308,7 @@
             <div class="panel-label">OPERATOR // SELECT</div>
             <div id="character-cards">
                 <!-- La Pluma Card -->
-                <div class="character-card active" data-character="la-pluma" id="card-la-pluma">
+                <div class="character-card active" data-character="la-pluma" id="card-la-pluma" tabindex="0" role="button" aria-pressed="true" aria-label="选择干员：羽毛笔">
                     <div class="character-card-inner">
                         <div class="character-illustration">
                             <img src="picture/立绘_羽毛笔_skin1.webp" alt="羽毛笔" class="character-img" loading="lazy">
@@ -448,10 +478,11 @@
     <!-- Toast container -->
     <div id="toast-container"></div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+    <!-- Scripts (deferred where possible) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+    <script src="js/characters.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/tilt.js"></script>
     <script src="js/music.js"></script>

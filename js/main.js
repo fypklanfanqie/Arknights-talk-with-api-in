@@ -122,6 +122,13 @@ const App = (() => {
                 if (card) {
                     characterCards[id] = card;
                     card.addEventListener('click', () => switchCharacter(id));
+                    // Keyboard accessibility
+                    card.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            switchCharacter(id);
+                        }
+                    });
                 } else {
                     console.warn('Character card not found: card-' + id);
                 }
@@ -206,14 +213,17 @@ const App = (() => {
                 updateLangToggleDisplay();
             }
 
+            // 官网动效 · 右侧面板滚动暗示
+            initScrollHint();
+
             // Initialize sub-modules
             TTSManager.init();
             ChatManager.init();
             MusicPlayer.init();
             TiltEffect.init();
 
-            // Preload voice files in background (WAV files can be large)
-            cardIds.forEach(id => preloadVoice(id));
+            // Preload only first 3 voice files to avoid bandwidth spike (rest load on demand)
+            cardIds.slice(0, 3).forEach(id => preloadVoice(id));
 
             // Initialize Live2D with timeout (max 8s)
             try {
@@ -230,6 +240,7 @@ const App = (() => {
             const activeChar = Storage.getActiveCharacter();
             if (activeChar) {
                 setActiveCard(activeChar);
+                updateWatermark(activeChar);
             }
 
             // Sync mobile dropdown initial value
@@ -247,24 +258,29 @@ const App = (() => {
         }
     }
 
+    let _loadingInterval = null;
+
     function simulateLoading() {
         const bar = document.getElementById('loading-bar');
         const percent = document.getElementById('loading-percent');
 
+        // 官网动效 · 几何引导线入场
+        const geoGuides = document.getElementById('geo-guides');
+        if (geoGuides) {
+            geoGuides.classList.add('entering');
+        }
+
         let progress = 0;
-        const interval = setInterval(() => {
+        _loadingInterval = setInterval(() => {
             progress += Math.random() * 25;
             if (progress >= 100) {
                 progress = 100;
-                clearInterval(interval);
+                clearInterval(_loadingInterval);
+                _loadingInterval = null;
             }
-            bar.style.width = Math.floor(progress) + '%';
-            percent.textContent = Math.floor(progress);
+            if (bar) bar.style.width = Math.floor(progress) + '%';
+            if (percent) percent.textContent = Math.floor(progress);
         }, 200);
-
-        // Store interval for cleanup
-        window._loadingInterval = interval;
-        window._loadingTarget = 100;
     }
 
     function finishLoading() {
@@ -273,8 +289,19 @@ const App = (() => {
         const loadingScreen = document.getElementById('loading-screen');
         const appContainer = document.getElementById('app-container');
 
+        // 官网动效 · 几何引导线退场
+        const geoGuides = document.getElementById('geo-guides');
+        if (geoGuides) {
+            geoGuides.classList.remove('entering');
+            geoGuides.classList.add('exiting');
+            // 退场动画完成后隐藏
+            setTimeout(() => {
+                geoGuides.classList.add('hidden');
+            }, 800);
+        }
+
         // Ensure 100%
-        if (window._loadingInterval) clearInterval(window._loadingInterval);
+        if (_loadingInterval) { clearInterval(_loadingInterval); _loadingInterval = null; }
         if (bar) bar.style.width = '100%';
         if (percent) percent.textContent = '100';
 
@@ -338,6 +365,35 @@ const App = (() => {
         } catch (e) {
             console.warn('Live2D switch error:', e);
         }
+
+        // 7. 官网动效 · 更新背景水印文字
+        updateWatermark(characterId);
+    }
+
+    const WATERMARK_NAMES = {
+        'amiya': 'AMIYA',
+        'eyjafjalla': 'EYJAFJALLA',
+        'goldenglow': 'GOLDENGLOW',
+        'mudrock': 'MUDROCK',
+        'la-pluma': 'LA PLUMA',
+        'logos': 'LOGOS',
+        'honeyberry': 'HONEYBERRY',
+        'haruka': 'HARUKA',
+        'wisdel': "WIS'ADEL",
+        'zuole': 'ZUO LE',
+    };
+    function updateWatermark(characterId) {
+        const watermark = document.querySelector('.live2d-watermark');
+        if (watermark) {
+            const name = WATERMARK_NAMES[characterId];
+            if (name) {
+                watermark.style.opacity = '0';
+                setTimeout(() => {
+                    watermark.textContent = name;
+                    watermark.style.opacity = '1';
+                }, 200);
+            }
+        }
     }
 
     function showSubtitle(characterId) {
@@ -353,7 +409,9 @@ const App = (() => {
 
     function setActiveCard(characterId) {
         Object.entries(characterCards).forEach(([id, card]) => {
-            card.classList.toggle('active', id === characterId);
+            const isActive = id === characterId;
+            card.classList.toggle('active', isActive);
+            card.setAttribute('aria-pressed', String(isActive));
         });
     }
 
@@ -387,6 +445,13 @@ const App = (() => {
 
         Storage.setApiConfig(config);
         showToast('CONFIG SAVED // Settings updated', 'success');
+
+        // 按钮闪烁反馈
+        const btn = document.getElementById('btn-save-settings');
+        if (btn) {
+            btn.classList.add('saved');
+            setTimeout(() => btn.classList.remove('saved'), 800);
+        }
     }
 
     /* ============================================================
@@ -410,6 +475,13 @@ const App = (() => {
         Storage.setTtsProxyUrl(proxyUrl);
         Storage.setTtsConfig({ apiKey, appId, accessKey });
         TTSManager.reloadConfig();
+
+        // 按钮闪烁反馈
+        const btn = document.getElementById('btn-save-tts-settings');
+        if (btn) {
+            btn.classList.add('saved');
+            setTimeout(() => btn.classList.remove('saved'), 800);
+        }
 
         const status = document.getElementById('tts-settings-status');
         if (status) {
@@ -454,6 +526,32 @@ const App = (() => {
         const input = document.getElementById('api-key');
         const isPassword = input.type === 'password';
         input.type = isPassword ? 'text' : 'password';
+    }
+
+    /* 官网动效 · 滚动暗示控制器 */
+    function initScrollHint() {
+        const scrollHint = document.getElementById('scroll-hint');
+        const rightPanel = document.getElementById('right-panel');
+        if (!scrollHint || !rightPanel) return;
+
+        let ticking = false;
+        const onScroll = () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    scrollHint.classList.toggle('hidden', rightPanel.scrollTop > 60);
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+        rightPanel.addEventListener('scroll', onScroll, { passive: true });
+
+        // 初始显示，2s 后如果未滚动过则显示
+        setTimeout(() => {
+            if (rightPanel.scrollTop <= 60) {
+                scrollHint.classList.remove('hidden');
+            }
+        }, 1500);
     }
 
     /** Show a toast notification */
