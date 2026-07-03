@@ -1,0 +1,19 @@
+[package]
+name = "ai-serve"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "STDIO + HTTP server for ai-core"
+
+[dependencies]
+ai-core = { path = "../ai-core" }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+futures = "0.3"

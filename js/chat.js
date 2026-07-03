@@ -821,6 +821,7 @@ const ChatManager = (() => {
 
     async function sendMessage() {
         if (isStreaming) return;
+        if (typeof KernelModule !== 'undefined' && KernelModule.enabled) return;
 
         const text = inputEl.value.trim();
         if (!text) return;
@@ -1020,6 +1021,10 @@ const ChatManager = (() => {
         updateCharacterDisplay();
         renderHistory();
     }
+
+    window.CHARACTERS = CHARACTERS;
+
+    window.callLLM = callLLM;
 
     return { init, switchCharacter, sendMessage, clearChat };
 })();
