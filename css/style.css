@@ -2761,3 +2761,137 @@ button:focus-visible {
         border-width: 2px;
     }
 }
+
+/* ============================================================
+   KERNEL MODE CONTROLS
+   ============================================================ */
+#kernel-toggle-bar {
+    margin: 8px 0;
+    padding: 8px 16px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+}
+
+#kernel-toggle-bar .toggle-label {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #c9a87c;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #c9a87c;
+    cursor: pointer;
+}
+
+#kernel-config {
+    padding: 12px 0;
+}
+
+.kernel-ai-row {
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+}
+
+.ai-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #c9a87c;
+}
+
+.btn-remove-ai {
+    padding: 2px 8px;
+    font-size: 11px;
+    color: #e06060;
+    background: rgba(224,96,96,0.1);
+    border: 1px solid rgba(224,96,96,0.3);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.btn-remove-ai:hover {
+    background: rgba(224,96,96,0.2);
+}
+
+.ai-row-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-group-inline label {
+    flex: 0 0 70px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+.form-group-inline select,
+.form-group-inline input {
+    flex: 1;
+    min-width: 0;
+}
+
+.btn-add-ai {
+    margin: 6px 0 12px;
+    width: 100%;
+    background: rgba(201,168,124,0.15) !important;
+    border: 1px dashed rgba(201,168,124,0.4) !important;
+}
+
+.btn-add-ai:hover {
+    background: rgba(201,168,124,0.25) !important;
+    border-color: #c9a87c !important;
+}
+
+.agent-tag { display: none; }
+
+#kernel-speed {
+    width: 100%;
+    accent-color: #c9a87c;
+    margin-top: 4px;
+}
+
+#kernel-speed-val {
+    color: #c9a87c;
+    font-weight: 600;
+}
+
+#kernel-start {
+    margin-top: 12px;
+    width: 100%;
+}
+
+#kernel-status {
+    margin-top: 6px;
+    font-size: 11px;
+}

@@ -221,6 +221,9 @@
             <div id="settings-panel">
                 <div class="panel-label">SYSTEM // CONFIG</div>
                 <div class="settings-form">
+
+                    <!-- Single AI config -->
+                    <div id="single-config">
                     <div class="form-group">
                         <label for="api-provider">API 提供商</label>
                         <select id="api-provider">
@@ -263,6 +266,7 @@
                     </div>
                     <button class="btn-save" id="btn-save-settings">保存设置</button>
                     <div class="settings-status" id="settings-status"></div>
+                    </div><!-- /#single-config -->
 
                     <!-- TTS Settings divider -->
                     <div class="settings-divider">
@@ -296,7 +300,41 @@
                     </div>
                     <button class="btn-save" id="btn-save-tts-settings">保存 TTS 设置</button>
                     <div class="settings-status" id="tts-settings-status"></div>
+
+                    <!-- Multi-AI kernel config (shown when enabled) -->
+                    <div id="kernel-config" style="display:none">
+                        <div class="settings-divider"><span>AI 配置 — 每个 AI 可独立设置模型和角色</span></div>
+                        <div id="kernel-ai-rows"></div>
+                        <button class="btn-save btn-add-ai" id="kernel-add-ai">+ 添加 AI</button>
+                        <div class="settings-divider"><span>对话设置</span></div>
+                        <label class="toggle-label">
+                            <input type="checkbox" id="kernel-share" checked>
+                            <span>AI 互相可见对话</span>
+                        </label>
+                        <div class="form-group">
+                            <label>发言速度 <span id="kernel-speed-val">1.0</span></label>
+                            <input type="range" id="kernel-speed" min="0.1" max="1.0" step="0.1" value="1.0">
+                        </div>
+                        <div class="form-group">
+                            <label>最大轮数 <span class="label-hint">(1-99, 0=无限)</span></label>
+                            <input type="number" id="kernel-max-rounds" min="0" max="99" value="0">
+                        </div>
+                        <label class="toggle-label">
+                            <input type="checkbox" id="kernel-autoloop">
+                            <span>自动循环对话</span>
+                        </label>
+                        <button class="btn-save" id="kernel-start">保存设定</button>
+                        <div class="settings-status" id="kernel-status"></div>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Kernel toggle -->
+            <div id="kernel-toggle-bar">
+                <label class="toggle-label">
+                    <input type="checkbox" id="kernel-enabled">
+                    <span>启用内核多AI模式</span>
+                </label>
             </div>
 
             <!-- Settings Toggle (mobile only) -->
@@ -305,6 +343,7 @@
             </button>
 
             <!-- Character Cards (bottom) -->
+            <div id="operator-select-area">
             <div class="panel-label">OPERATOR // SELECT</div>
             <div id="character-cards">
                 <!-- La Pluma Card -->
@@ -472,6 +511,7 @@
                     </div>
                 </div>
             </div>
+            </div><!-- /#operator-select-area -->
         </div>
     </div>
 
@@ -489,6 +529,7 @@
     <script src="js/live2d.js"></script>
     <script src="js/tts.js"></script>
     <script src="js/chat.js"></script>
+    <script src="js/kernel.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

@@ -325,6 +325,7 @@ const App = (() => {
 
     function switchCharacter(characterId) {
         if (!characterId) return;
+        if (typeof KernelModule !== 'undefined' && KernelModule.enabled) return;
 
         // 1. Update chat name+role FIRST (before anything else)
         ChatManager.switchCharacter(characterId);
@@ -576,4 +577,5 @@ const App = (() => {
 // Boot
 document.addEventListener('DOMContentLoaded', () => {
     App.init();
+    if (typeof KernelModule !== 'undefined') KernelModule.init();
 });
