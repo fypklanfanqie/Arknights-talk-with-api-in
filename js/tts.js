@@ -13,10 +13,32 @@ const TTSManager = (() => {
     // ================================================================
     // Configuration
     // ================================================================
+    // 默认音色（未匹配到角色时使用）
     const VOICE_IDS = {
-        zh: 'S_c1jmOCG72',   // 豆包 2.0 中文女声
-        ja: 'S_d1jmOCG72',   // 豆包 2.0 日文女声
+        zh: 'S_c1jmOCG72',   // 豆包 2.0 中文女声（羽毛笔）
+        ja: 'S_d1jmOCG72',   // 豆包 2.0 日文女声（羽毛笔）
     };
+
+    // 角色专用音色码（按角色 ID → 语言 → 音色码）
+    const CHARACTER_VOICE_IDS = {
+        'la-pluma': {
+            zh: 'S_c1jmOCG72',   // 羽毛笔 中文
+            ja: 'S_d1jmOCG72',   // 羽毛笔 日文
+        },
+        'amiya': {
+            zh: 'S_b1jmOCG72',   // 阿米娅 中文
+            ja: 'S_dXhmOCG72',   // 阿米娅 日文
+        },
+    };
+
+    function getVoiceId(lang, characterId) {
+        // 优先使用角色专用音色
+        if (characterId && CHARACTER_VOICE_IDS[characterId] && CHARACTER_VOICE_IDS[characterId][lang]) {
+            return CHARACTER_VOICE_IDS[characterId][lang];
+        }
+        // 回退到默认音色
+        return VOICE_IDS[lang];
+    }
 
     const RESOURCE_ID = 'seed-icl-2.0';
 
@@ -50,6 +72,11 @@ const TTSManager = (() => {
 
     function getLanguage() { return currentLanguage; }
 
+    // 检查角色是否配置了专用 TTS 音色
+    function hasCharacterVoice(characterId) {
+        return !!(characterId && CHARACTER_VOICE_IDS[characterId]);
+    }
+
     function generateUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
             const r = Math.random() * 16 | 0;
@@ -70,10 +97,10 @@ const TTSManager = (() => {
     // ================================================================
     // Synthesis: HTTP V3 via Cloudflare Worker proxy
     // ================================================================
-    async function synthesize(text) {
+    async function synthesize(text, characterId) {
         const config = Storage.getTtsConfig();
         const proxyUrl = Storage.getTtsProxyUrl();
-        const voiceId = VOICE_IDS[currentLanguage];
+        const voiceId = getVoiceId(currentLanguage, characterId);
         const requestId = generateUUID();
 
         // 验证配置
@@ -291,17 +318,23 @@ const TTSManager = (() => {
     // ================================================================
     // Main: speak text
     // ================================================================
-    async function speak(text) {
+    async function speak(text, characterId) {
         if (!text || !text.trim()) throw new Error('没有可朗读的文本');
+
+        // 仅允许配置了 TTS 音色的角色使用语音
+        if (characterId && !hasCharacterVoice(characterId)) {
+            throw new Error('当前角色不支持 TTS 语音');
+        }
+
         if (isPlaying) stopAll();
 
-        console.log('[TTS] 开始合成...');
-        const audioBlob = await synthesize(text);
+        console.log('[TTS] 开始合成... 角色:', characterId || '(默认)');
+        const audioBlob = await synthesize(text, characterId);
         await playAudio(audioBlob);
     }
 
     return {
-        init, setLanguage, getLanguage,
+        init, setLanguage, getLanguage, hasCharacterVoice,
         speak, stopAll, getIsPlaying, reloadConfig,
     };
 })();

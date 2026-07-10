@@ -12,6 +12,7 @@ const Live2DManager = (() => {
     let targetMouseX = 0.5;
     let targetMouseY = 0.5;
     let animationId = null;
+    let resizeObserver = null;
 
     // Model paths — only Amiya has a Live2D model
     const MODEL_PATHS = {
@@ -29,6 +30,17 @@ const Live2DManager = (() => {
         'haruka': 'picture/立绘_遥_2.webp',
         'wisdel': 'picture/立绘_维什戴尔_2.webp',
         'zuole': 'picture/立绘_左乐_skin2.webp',
+        // 小程序新增角色
+        'magallan': 'picture/立绘_麦哲伦_skin1.png',
+        'shu': 'picture/立绘_黍_skin1.png',
+        'surtr': 'picture/立绘_史尔特尔_skin3.png',
+        'xinoge': 'picture/立绘_晓歌_skin2.png',
+        'lin': 'picture/立绘_林_skin1.png',
+        'lappland': 'picture/立绘_拉普兰德_skin1.png',
+        'executor': 'picture/立绘_送葬人_skin1.png',
+        'mon3tr': 'picture/立绘_Mon3tr_skin1.png',
+        'xingyuan': 'picture/立绘_星源_skin1.png',
+        'texas': 'picture/立绘_德克萨斯_skin1.png',
     };
 
     const MODEL_NAMES = {
@@ -42,6 +54,16 @@ const Live2DManager = (() => {
         'haruka': 'Haruka',
         'wisdel': "Wis'adel",
         'zuole': 'Zuo Le',
+        'magallan': 'Magallan',
+        'shu': 'Shu',
+        'surtr': 'Surtr',
+        'xinoge': 'Cantabile',
+        'lin': 'Lin',
+        'lappland': 'Lappland',
+        'executor': 'Executor',
+        'mon3tr': 'Mon3tr',
+        'xingyuan': 'Astgenne',
+        'texas': 'Texas',
     };
 
     // --- Resolve the Live2DModel class from whichever namespace it landed in ---
@@ -68,9 +90,8 @@ const Live2DManager = (() => {
     function getFallbackImg() { return document.getElementById('live2d-fallback-img'); }
     function getModelNameEl() { return document.getElementById('live2d-model-name'); }
 
-    // --- Show static fallback image ---
-    function showFallback(characterId) {
-        // Safely destroy any existing model
+    // --- Cleanup helpers ---
+    function destroyModel() {
         if (model) {
             try {
                 if (app && app.stage) app.stage.removeChild(model);
@@ -78,6 +99,31 @@ const Live2DManager = (() => {
             } catch (e) { /* ignore */ }
             model = null;
         }
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+    }
+
+    function destroyApp() {
+        destroyModel();
+        if (app) {
+            try {
+                if (app.renderer) app.renderer.destroy(true);
+                app.destroy(true, { children: true, texture: true });
+            } catch (e) { /* ignore */ }
+            app = null;
+        }
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+            resizeObserver = null;
+        }
+        isInitialized = false;
+    }
+
+    // --- Show static fallback image ---
+    function showFallback(characterId) {
+        destroyModel();
 
         // Hide canvas
         const canvas = getCanvas();
@@ -151,19 +197,21 @@ const Live2DManager = (() => {
                 throw new Error('WebGL not available');
             }
 
-            // Mouse tracking
-            viewportEl.addEventListener('mousemove', function (e) {
+            // Mouse tracking (with cleanup reference stored via closure)
+            const onMouseMove = function (e) {
                 const r = viewportEl.getBoundingClientRect();
                 targetMouseX = (e.clientX - r.left) / r.width;
                 targetMouseY = (e.clientY - r.top) / r.height;
-            });
-            viewportEl.addEventListener('mouseleave', function () {
+            };
+            const onMouseLeave = function () {
                 targetMouseX = 0.5;
                 targetMouseY = 0.5;
-            });
+            };
+            viewportEl.addEventListener('mousemove', onMouseMove);
+            viewportEl.addEventListener('mouseleave', onMouseLeave);
 
-            // Resize observer
-            new ResizeObserver(function () {
+            // Resize observer (store ref for cleanup)
+            resizeObserver = new ResizeObserver(function () {
                 if (!app || !app.renderer) return;
                 const r = viewportEl.getBoundingClientRect();
                 if (r.width <= 0 || r.height <= 0) return;
@@ -173,7 +221,8 @@ const Live2DManager = (() => {
                     model.y = r.height * 0.55;
                     model.scale.set(Math.min(r.width / 800, r.height / 900) * 0.95);
                 }
-            }).observe(viewportEl);
+            });
+            resizeObserver.observe(viewportEl);
 
             isInitialized = true;
             console.log('Live2D: initialized successfully');
@@ -203,13 +252,7 @@ const Live2DManager = (() => {
         }
 
         // Remove old model
-        if (model) {
-            try {
-                if (app && app.stage) app.stage.removeChild(model);
-                model.destroy();
-            } catch (e) { /* ignore */ }
-            model = null;
-        }
+        destroyModel();
 
         // Show canvas, hide fallback
         const canvas = getCanvas();

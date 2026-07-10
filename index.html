@@ -3,42 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="罗德岛通讯终端 - Arknights Talk Terminal">
+    <meta name="description" content="罗德岛通讯终端 — Arknights 同人角色扮演聊天，支持多角色 LLM 对话、Live2D 展示与 TTS 语音合成">
+    <meta name="theme-color" content="#0a0a0f">
     <meta http-equiv="Cache-Control" content="public, max-age=86400">
+
+    <!-- Open Graph / Social -->
+    <meta property="og:title" content="RHODES ISLAND // TERMINAL">
+    <meta property="og:description" content="明日方舟同人通讯终端 — 与罗德岛干员进行角色扮演对话">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="zh_CN">
+
     <title>RHODES ISLAND // TERMINAL</title>
 
-    <!-- Preload critical assets -->
+    <!-- DNS prefetch + preconnect for CDN origins -->
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Preload critical font assets (only the primary weight) -->
     <link rel="preload" as="font" href="fonts/BENDER.OTF" type="font/opentype" crossorigin>
     <link rel="preload" as="font" href="fonts/BENDER-LIGHT-ITALIC.OTF" type="font/opentype" crossorigin>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts (subset for zh-CN) -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
 
-    <!-- PIXI.js -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
+    <!-- PIXI.js (deferred — not critical for first paint) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
 
-    <!-- Live2D Cubism Core (jsDelivr mirror — official CDN blocks no-referrer requests) -->
-    <script src="https://cdn.jsdelivr.net/npm/live2dcubismcore@1.0.2/live2dcubismcore.min.js"
-            onerror="console.warn('CubismCore CDN failed, trying fallback...');var s=document.createElement('script');s.src='https://s4.zstatic.net/npm/live2dcubismcore@1.0.2/live2dcubismcore.min.js';document.head.appendChild(s);">
+    <!-- Live2D Cubism Core (local, with CDN fallback) -->
+    <script defer src="lib/live2dcubismcore.min.js"
+            onerror="console.warn('CubismCore local failed, trying CDN...');var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/live2dcubismcore@1.0.2/live2dcubismcore.min.js';s.onerror=function(){console.warn('CDN also failed');var s2=document.createElement('script');s2.src='https://s4.zstatic.net/npm/live2dcubismcore@1.0.2/live2dcubismcore.min.js';document.head.appendChild(s2);};document.head.appendChild(s);">
     </script>
 
     <!-- pixi-live2d-display (registers as PIXI.live2d.Live2DModel) -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.0/dist/index.min.js" crossorigin="anonymous"
+            onerror="console.warn('pixi-live2d-display CDN failed, trying fallback...');var s=document.createElement('script');s.src='https://s4.zstatic.net/npm/pixi-live2d-display@0.5.0/dist/index.min.js';document.head.appendChild(s);">
+    </script>
+
+    <!-- Live2D diagnostic: verify runtime globals are set after all libs load -->
+    <script>
+    window.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            var hasPixi = typeof PIXI !== 'undefined';
+            var hasCubismCore = typeof Live2DCubismCore !== 'undefined';
+            var hasLive2DModel = hasPixi && PIXI.live2d && PIXI.live2d.Live2DModel;
+            if (!hasLive2DModel) {
+                console.warn('[Live2D] PIXI=' + hasPixi + ' CubismCore=' + hasCubismCore +
+                    ' Live2DModel=' + !!hasLive2DModel + ' — falling back to static images');
+            }
+        }, 500);
+    });
+    </script>
 
     <!-- KaTeX for math rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <!-- mammoth.js (docx → text extraction) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+    <!-- SheetJS (xlsx → text extraction) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Styles -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+
+    <!-- Skip to main content (accessibility) -->
+    <a href="#chat-input" class="skip-link" aria-label="跳转到聊天输入框">跳转到聊天区域</a>
 
     <!-- Global atmosphere overlays -->
     <div id="prts-grid"></div>
     <div id="grain-overlay"></div>
     <div id="scanlines"></div>
     <div id="vignette"></div>
+
+    <!-- 官网动效 · 几何引导线（加载时动画位移，加载完成后渐隐） -->
+    <div id="geo-guides" aria-hidden="true">
+        <span class="geo-guide-h"></span>
+        <span class="geo-guide-v"></span>
+    </div>
+
+    <!-- 官网动效 · 右侧面板滚动暗示 -->
+    <div id="scroll-hint" aria-hidden="true">
+        <span>OPERATORS</span>
+        <div class="scroll-hint-arrow"></div>
+    </div>
 
     <!-- Loading Screen -->
     <div id="loading-screen">
@@ -52,14 +102,15 @@
     </div>
 
     <!-- Main Container -->
-    <div id="app-container">
+    <div id="app-container" role="application" aria-label="罗德岛通讯终端">
 
         <!-- ============ LEFT PANEL: Live2D + Music ============ -->
-        <div id="left-panel">
+        <div id="left-panel" role="complementary" aria-label="Live2D 展示与音乐播放器">
             <!-- Live2D Viewport -->
-            <div id="live2d-container">
+            <div id="live2d-container" role="img" aria-label="干员 Live2D 动态展示">
                 <div class="panel-label">RHODES ISLAND // LIVE2D</div>
                 <div id="live2d-viewport">
+                    <div class="live2d-watermark" aria-hidden="true">ARKNIGHTS</div>
                     <div class="hud-corners" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
                     <div class="hud-reticle" aria-hidden="true"></div>
                     <canvas id="live2d-canvas"></canvas>
@@ -79,8 +130,14 @@
             <div id="music-player">
                 <div class="panel-label">MONSTER SIREN // RECORDS</div>
                 <div class="music-info">
-                    <div class="music-title" id="music-title">m_sys_title_combine</div>
-                    <div class="music-artist">Arknights OST</div>
+                    <div class="music-title-row">
+                        <div class="music-title" id="music-title">Rhodes Island</div>
+                        <button class="music-btn-fav" id="btn-fav" title="Add to favorites">
+                            <svg id="icon-fav" viewBox="0 0 24 24" width="16" height="16"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                            <svg id="icon-fav-solid" viewBox="0 0 24 24" width="16" height="16" class="hidden"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="currentColor"/></svg>
+                        </button>
+                    </div>
+                    <div class="music-artist" id="music-artist">Arknights OST</div>
                     <div class="music-waveform" aria-hidden="true">
                         <span></span><span></span><span></span><span></span><span></span>
                         <span></span><span></span><span></span><span></span><span></span>
@@ -111,15 +168,30 @@
                     <svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" fill="currentColor"/></svg>
                     <input type="range" id="volume-slider" min="0" max="100" value="60" class="volume-slider">
                 </div>
-                <div class="music-playlist" id="music-playlist">
+                <!-- Search bar -->
+                <div class="music-search-row">
+                    <svg class="music-search-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+                    <input type="text" id="music-search" class="music-search-input" placeholder="搜索曲目...">
+                    <button class="music-btn-filter" id="btn-fav-filter" title="Show favorites only">
+                        <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="currentColor"/></svg>
+                    </button>
+                </div>
+                <!-- EP Filter tabs -->
+                <div class="music-ep-tabs" id="music-ep-tabs">
+                    <!-- Populated by JS -->
+                </div>
+                <!-- Track count -->
+                <div class="music-track-count" id="music-track-count">0 / 0</div>
+                <!-- Scrollable track library -->
+                <div class="music-library" id="music-library">
                     <!-- Populated by JS -->
                 </div>
             </div>
         </div>
 
         <!-- ============ MIDDLE PANEL: Chat ============ -->
-        <div id="middle-panel">
-            <div id="chat-container">
+        <div id="middle-panel" role="main" aria-label="聊天对话区域">
+            <div id="chat-container" aria-live="polite">
                 <!-- Rotating background slideshow -->
                 <div id="chat-bg" aria-hidden="true">
                     <div class="chat-bg-layer active"></div>
@@ -146,6 +218,16 @@
                                 <option value="haruka">遥</option>
                                 <option value="wisdel">维什戴尔</option>
                                 <option value="zuole">左乐</option>
+                                <option value="magallan">麦哲伦</option>
+                                <option value="shu">黍</option>
+                                <option value="surtr">史尔特尔</option>
+                                <option value="xinoge">晓歌</option>
+                                <option value="lin">林</option>
+                                <option value="lappland">拉普兰德</option>
+                                <option value="executor">送葬人</option>
+                                <option value="mon3tr">Mon3tr</option>
+                                <option value="xingyuan">星源</option>
+                                <option value="texas">德克萨斯</option>
                             </select>
                         </div>
                         <button class="btn-lang-toggle" id="btn-lang-toggle" title="切换语音语言 (Voice Language)" data-lang="zh">
@@ -159,7 +241,7 @@
                     </div>
                 </div>
 
-                <div class="chat-messages" id="chat-messages">
+                <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-label="聊天消息">
                     <div class="chat-welcome">
                         <div class="welcome-line">[罗德岛通讯 - 频道已开启]</div>
                         <div class="welcome-sub">选择角色，开始对话...</div>
@@ -173,20 +255,29 @@
                 </div>
 
                 <div class="chat-input-area">
+                    <!-- Attachment previews -->
+                    <div class="attachment-preview" id="attachment-preview" style="display:none;">
+                        <div class="image-preview-list" id="image-preview-list"></div>
+                        <div class="file-preview-list" id="file-preview-list"></div>
+                    </div>
                     <div class="chat-input-wrapper">
+                        <button class="btn-attach" id="btn-attach" title="添加附件（图片/文件）" type="button">
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z" fill="currentColor"/></svg>
+                        </button>
+                        <input type="file" id="file-input" accept="image/*,.txt,.md,.csv,.json,.xml,.html,.css,.js,.py,.c,.cpp,.h,.java,.ts,.tsx,.jsx,.yaml,.yml,.toml,.ini,.cfg,.log,.sql,.docx,.xlsx,.xls" multiple style="display:none;">
                         <span class="input-prompt" aria-hidden="true">></span>
                         <textarea id="chat-input" placeholder="输入消息..." rows="1"></textarea>
                         <button id="btn-send" class="btn-send" title="Send message">
                             <svg viewBox="0 0 24 24" width="20" height="20"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
                         </button>
                     </div>
-                    <div class="chat-input-hint">[回车] 发送 // [Shift+回车] 换行</div>
+                    <div class="chat-input-hint">[回车] 发送 // [Shift+回车] 换行 // 支持图片/文件上传</div>
                 </div>
             </div>
         </div>
 
         <!-- ============ RIGHT PANEL: Settings + Character Switch ============ -->
-        <div id="right-panel">
+        <div id="right-panel" role="navigation" aria-label="设置与干员选择">
             <!-- API Settings (top) -->
             <div id="settings-panel">
                 <div class="panel-label">SYSTEM // CONFIG</div>
@@ -220,8 +311,9 @@
                         <label for="api-model">MODEL</label>
                         <select id="api-model-select">
                             <option value="custom">自定义</option>
-                            <option value="deepseek-chat">deepseek-chat (DeepSeek V3)</option>
-                            <option value="deepseek-reasoner">deepseek-reasoner (DeepSeek R1)</option>
+
+                            <option value="deepseek-v4-pro">deepseek-v4-pro (DeepSeek V4 Pro)</option>
+                            <option value="deepseek-v4-flash">deepseek-v4-flash (DeepSeek V4 Flash)</option>
                             <option value="gpt-4o">gpt-4o (OpenAI)</option>
                             <option value="gpt-4o-mini">gpt-4o-mini (OpenAI)</option>
                             <option value="claude-3-5-sonnet-20241022">claude-3.5-sonnet (Anthropic)</option>
@@ -232,6 +324,7 @@
                         <input type="text" id="api-model" placeholder="或手动输入模型名..." autocomplete="off" style="margin-top:4px;">
                     </div>
                     <button class="btn-save" id="btn-save-settings">保存设置</button>
+                    <button class="btn-guide" id="btn-open-guide">📖 使用指南</button>
                     <div class="settings-status" id="settings-status"></div>
 
                     <!-- TTS Settings divider -->
@@ -278,7 +371,7 @@
             <div class="panel-label">OPERATOR // SELECT</div>
             <div id="character-cards">
                 <!-- La Pluma Card -->
-                <div class="character-card active" data-character="la-pluma" id="card-la-pluma">
+                <div class="character-card active" data-character="la-pluma" id="card-la-pluma" tabindex="0" role="button" aria-pressed="true" aria-label="选择干员：羽毛笔">
                     <div class="character-card-inner">
                         <div class="character-illustration">
                             <img src="picture/立绘_羽毛笔_skin1.webp" alt="羽毛笔" class="character-img" loading="lazy">
@@ -441,6 +534,314 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- ====== 小程序新增角色 (10 位) ====== -->
+
+                <!-- Magallan Card -->
+                <div class="character-card" data-character="magallan" id="card-magallan" tabindex="0" role="button" aria-pressed="false" aria-label="选择干员：麦哲伦">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_麦哲伦_skin1.png" alt="麦哲伦" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_麦哲伦_2.png" alt="麦哲伦" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R248</div>
+                            <div class="character-card-name">麦哲伦</div>
+                            <div class="character-card-title">莱茵生命外勤专员 / 极地科考员</div>
+                            <div class="character-card-race">黎博利</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shu Card -->
+                <div class="character-card" data-character="shu" id="card-shu">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_黍_skin1.png" alt="黍" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_黍_2.png" alt="黍" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R2025</div>
+                            <div class="character-card-name">黍</div>
+                            <div class="character-card-title">炎国农业天师 / 岁兽碎片·六</div>
+                            <div class="character-card-race">未公开（岁兽碎片）</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Surtr Card -->
+                <div class="character-card" data-character="surtr" id="card-surtr">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_史尔特尔_skin3.png" alt="史尔特尔" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_史尔特尔_skin2.png" alt="史尔特尔" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">SR</div>
+                            <div class="character-card-name">史尔特尔</div>
+                            <div class="character-card-title">近卫干员 / 罗德岛作战干员</div>
+                            <div class="character-card-race">萨卡兹</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Xinoge Card -->
+                <div class="character-card" data-character="xinoge" id="card-xinoge">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_晓歌_skin2.png" alt="晓歌" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_晓歌_2.png" alt="晓歌" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R497</div>
+                            <div class="character-card-name">晓歌</div>
+                            <div class="character-card-title">先锋干员 / 情报官</div>
+                            <div class="character-card-race">黎博利</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lin Card -->
+                <div class="character-card" data-character="lin" id="card-lin">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_林_skin1.png" alt="林" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_林_skin3.png" alt="林" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R4080</div>
+                            <div class="character-card-name">林</div>
+                            <div class="character-card-title">龙门合作者 / 贫民区管理者</div>
+                            <div class="character-card-race">札拉克</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lappland Card -->
+                <div class="character-card" data-character="lappland" id="card-lappland">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_拉普兰德_skin1.png" alt="拉普兰德" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_拉普兰德_2.png" alt="拉普兰德" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R140</div>
+                            <div class="character-card-name">拉普兰德</div>
+                            <div class="character-card-title">近卫干员 / 领主</div>
+                            <div class="character-card-race">鲁珀</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Executor Card -->
+                <div class="character-card" data-character="executor" id="card-executor">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_送葬人_skin1.png" alt="送葬人" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_送葬人_2.png" alt="送葬人" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R279</div>
+                            <div class="character-card-name">送葬人</div>
+                            <div class="character-card-title">拉特兰公证所执行者</div>
+                            <div class="character-card-race">萨科塔</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mon3tr Card -->
+                <div class="character-card" data-character="mon3tr" id="card-mon3tr">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_Mon3tr_skin1.png" alt="Mon3tr" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_Mon3tr_2.png" alt="Mon3tr" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R4179</div>
+                            <div class="character-card-name">Mon3tr</div>
+                            <div class="character-card-title">罗德岛特别顾问</div>
+                            <div class="character-card-race">未公开</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Xingyuan Card -->
+                <div class="character-card" data-character="xingyuan" id="card-xingyuan">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_星源_skin1.png" alt="星源" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_星源_2.png" alt="星源" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R135</div>
+                            <div class="character-card-name">星源</div>
+                            <div class="character-card-title">莱茵生命能量科研究员</div>
+                            <div class="character-card-race">黎博利</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Texas Card -->
+                <div class="character-card" data-character="texas" id="card-texas">
+                    <div class="character-card-inner">
+                        <div class="character-illustration dual-image">
+                            <img src="picture/立绘_德克萨斯_skin1.png" alt="德克萨斯" class="character-img character-img-primary" loading="lazy">
+                            <img src="picture/立绘_德克萨斯_skin2.png" alt="德克萨斯" class="character-img character-img-secondary" loading="lazy">
+                            <div class="character-glow"></div>
+                        </div>
+                        <div class="character-info">
+                            <div class="character-code">R102</div>
+                            <div class="character-card-name">德克萨斯</div>
+                            <div class="character-card-title">企鹅物流信使 / 先锋干员</div>
+                            <div class="character-card-race">鲁珀</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guide Overlay -->
+    <div id="guide-overlay">
+        <div class="guide-backdrop"></div>
+        <div class="guide-panel">
+            <div class="guide-header">
+                <div class="guide-header-label">RHODES ISLAND // USER GUIDE</div>
+                <button class="guide-close-btn" id="btn-close-guide" aria-label="关闭指南">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
+                </button>
+            </div>
+            <div class="guide-body">
+                <section class="guide-section">
+                    <h2>🌐 网站简介</h2>
+                    <p>罗德岛通讯终端是一款<strong>明日方舟同人角色扮演聊天应用</strong>。你可以与罗德岛的干员们进行沉浸式对话，感受每位干员独特的性格与语气。</p>
+                    <div class="guide-features">
+                        <div class="guide-feature-item">
+                            <span class="feature-icon">💬</span>
+                            <div>
+                                <strong>角色扮演对话</strong>
+                                <p>支持 12+ 位罗德岛干员，每位干员拥有独立的人格设定与对话风格，基于 LLM 大语言模型驱动。</p>
+                            </div>
+                        </div>
+                        <div class="guide-feature-item">
+                            <span class="feature-icon">🎤</span>
+                            <div>
+                                <strong>TTS 语音合成</strong>
+                                <p>部分角色支持中日双语音色，采用火山引擎豆包 2.0 语音合成技术，通过 Cloudflare Worker 代理转发。</p>
+                            </div>
+                        </div>
+                        <div class="guide-feature-item">
+                            <span class="feature-icon">🎨</span>
+                            <div>
+                                <strong>Live2D 动态立绘</strong>
+                                <p>支持 Live2D Cubism 模型展示，部分角色拥有专属动态立绘，带来更生动的视觉体验。</p>
+                            </div>
+                        </div>
+                        <div class="guide-feature-item">
+                            <span class="feature-icon">🎵</span>
+                            <div>
+                                <strong>背景音乐系统</strong>
+                                <p>内置多首角色主题曲与氛围音乐，支持播放/暂停/切换，营造沉浸式对话氛围。</p>
+                            </div>
+                        </div>
+                        <div class="guide-feature-item">
+                            <span class="feature-icon">📎</span>
+                            <div>
+                                <strong>文件/图片对话</strong>
+                                <p>支持上传图片、文档（PDF/Word/Excel/PPT），自动 OCR 提取文字，多模态模型可直接识别图片内容。</p>
+                            </div>
+                        </div>
+                        <div class="guide-feature-item">
+                            <span class="feature-icon">📱</span>
+                            <div>
+                                <strong>响应式设计</strong>
+                                <p>完美适配桌面端与移动端，移动端支持滑动切换干员，体验流畅。</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="guide-section">
+                    <h2>🔌 API 接入指南</h2>
+                    <p>本应用需要你提供<strong>大语言模型 API</strong> 才能正常对话。支持所有兼容 OpenAI Chat Completions 格式的 API 服务。</p>
+
+                    <h3>方式一：DeepSeek（推荐，国内可用）</h3>
+                    <ol class="guide-steps">
+                        <li>访问 <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a> 注册账号</li>
+                        <li>进入「API Keys」页面，创建 API Key</li>
+                        <li>在右侧设置面板中：
+                            <ul>
+                                <li>API 提供商：选择 <code>DeepSeek</code></li>
+                                <li>API Key：粘贴你的 API Key</li>
+                                <li>Model：选择 <code>deepseek-v4-pro</code> 或 <code>deepseek-v4-flash</code></li>
+                            </ul>
+                        </li>
+                        <li>点击「保存设置」即可开始对话</li>
+                    </ol>
+
+                    <h3>方式二：OpenAI</h3>
+                    <ol class="guide-steps">
+                        <li>访问 <a href="https://platform.openai.com" target="_blank">platform.openai.com</a></li>
+                        <li>创建 API Key 并充值</li>
+                        <li>设置面板中选择 <code>OpenAI</code> 提供商，填入 Key，选择模型</li>
+                    </ol>
+
+                    <h3>方式三：硅基流动（国内中转，无需翻墙）</h3>
+                    <ol class="guide-steps">
+                        <li>访问 <a href="https://siliconflow.cn" target="_blank">siliconflow.cn</a> 注册</li>
+                        <li>创建 API Key</li>
+                        <li>提供商选择 <code>硅基流动 (SiliconFlow)</code></li>
+                        <li>Model 可选用 <code>deepseek-ai/DeepSeek-V3</code>、<code>Qwen/Qwen2.5-72B-Instruct</code> 等</li>
+                    </ol>
+
+                    <h3>方式四：阿里百炼 / 智谱 / 月之暗面</h3>
+                    <p>以上平台均兼容 OpenAI 格式，选择对应提供商或手动输入 Base URL 即可。</p>
+
+                    <h3>自定义接口</h3>
+                    <ol class="guide-steps">
+                        <li>提供商选择「自定义」</li>
+                        <li>手动输入 API Base URL（如 <code>https://your-api.com/v1</code>）</li>
+                        <li>填入 API Key 和模型名</li>
+                        <li>只要能返回 OpenAI 格式的 <code>/chat/completions</code> 响应即可使用</li>
+                    </ol>
+                </section>
+
+                <section class="guide-section">
+                    <h2>🔊 TTS 语音配置</h2>
+                    <p>TTS 采用火山引擎豆包语音合成 2.0，通过 Cloudflare Worker 代理转发请求。</p>
+                    <ol class="guide-steps">
+                        <li>注册 <a href="https://www.volcengine.com" target="_blank">火山引擎</a> 账号</li>
+                        <li>开通「语音合成」服务，获取 API Key</li>
+                        <li>在 TTS 设置区域填入 API Key</li>
+                        <li>代理地址可使用公共代理或自行部署 Cloudflare Worker（代码见项目仓库）</li>
+                        <li><strong>仅羽毛笔和阿米娅支持 TTS 语音</strong></li>
+                    </ol>
+                </section>
+
+                <section class="guide-section">
+                    <h2>📖 使用技巧</h2>
+                    <ul class="guide-tips">
+                        <li><strong>切换角色：</strong>点击右侧干员卡片即可切换对话角色，聊天记录按角色独立保存</li>
+                        <li><strong>清除记忆：</strong>点击聊天区域顶部的「CLEAR」按钮可清除当前角色对话记录，开始新话题</li>
+                        <li><strong>语音播放：</strong>角色消息旁有播放按钮▶，点击即可 TTS 朗读（仅支持角色）</li>
+                        <li><strong>日语模式：</strong>在 TTS 设置区域可切换为日语，消息将自动翻译为日文后合成语音</li>
+                        <li><strong>上传文件：</strong>聊天框左侧 📎 按钮支持上传图片和文档，多模态模型可直接理解图片</li>
+                        <li><strong>代码高亮：</strong>角色回复中的代码块将自动语法高亮渲染</li>
+                        <li><strong>数学公式：</strong>支持 KaTeX 渲染 LaTeX 数学公式（行内 <code>$...$</code> 和块级 <code>$$...$$</code>）</li>
+                    </ul>
+                </section>
+
+                <section class="guide-section">
+                </section>
             </div>
         </div>
     </div>
@@ -448,12 +849,16 @@
     <!-- Toast container -->
     <div id="toast-container"></div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+    <!-- Scripts (deferred where possible) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+    <script src="js/characters.js"></script>
+    <script src="js/codeHighlight.js"></script>
+    <script src="js/ocr.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/tilt.js"></script>
+    <script src="js/musicData.js"></script>
     <script src="js/music.js"></script>
     <script src="js/live2d.js"></script>
     <script src="js/tts.js"></script>

@@ -19,6 +19,17 @@ const App = (() => {
         'haruka': 'music/干员报到_haruka.wav',
         'wisdel': 'music/作战中4_wisdel.wav',
         'zuole': 'music/任命助理_zuole.wav',
+        // 小程序新增角色
+        'magallan': 'music/任命助理_magallan.wav',
+        'shu': 'music/任命助理_shu.wav',
+        'surtr': 'music/任命助理_surtr.wav',
+        'xinoge': 'music/任命助理_xinoge.wav',
+        'lin': 'music/任命助理_lin.wav',
+        'lappland': 'music/任命助理_lappland.wav',
+        'executor': 'music/任命助理_executor.wav',
+        'mon3tr': 'music/任命助理_mon3tr.wav',
+        'xingyuan': 'music/任命助理_xingyuan.wav',
+        'texas': 'music/任命助理_texas.wav',
     };
 
     // Pool of preloaded Audio objects
@@ -93,6 +104,47 @@ const App = (() => {
             jp: '',
             cn: '我刚当上秉烛人的时候，花了三个月整，才读完司岁台的所有卷宗，而堆积在您这里的文件，数量也......相当可观。我想，我应该有足够的时间来熟悉工作吧？',
         },
+        // 小程序新增角色
+        'magallan': {
+            jp: 'ライフサイエンス科学調査員、マゼランです。あなたがロドスのドクターですね。私の探検隊に入りませんか？',
+            cn: '莱茵生命科考专员麦哲伦！你就是博士吧？要不要加入我的探险队呢？很有趣的！',
+        },
+        'shu': {
+            jp: 'ドクター、日光と水分はどちらも成長に必要な条件です。この鉢植えは今日のノルマをきちんと達成しましたが、あなたはまだ十杯の水を飲んでいないようですよ。',
+            cn: '博士，阳光与水分都是生长的必要条件，这株盆栽今天已经好好地完成了它的指标，但你好像还没喝够十杯水哦。',
+        },
+        'surtr': {
+            jp: 'あ、あなたがいた。',
+            cn: '啊，你在这里。',
+        },
+        'xinoge': {
+            jp: '博士、足音が聞こえましたよ。',
+            cn: '听到你的脚步声了呢，博士。',
+        },
+        'lin': {
+            jp: '私はあなたを守ることができる。面倒なことも処理できる。でも、その価値を証明してみせて。',
+            cn: '我可以保护你，也可以帮你处理一些麻烦。但你最好向我证明这样做的价值。',
+        },
+        'lappland': {
+            jp: 'やあ、ドクター。武器をここに持ち込んでも、許してくれるんだろ？じゃあ、ここに座らせてもらうよ。',
+            cn: '哟，博士。就算我把武器带进这里，你也会原谅我的对吧。那我就坐在这里了。',
+        },
+        'executor': {
+            jp: 'ドクター、安心してください。地雷を設置しておきましたので、何人たりともあなたの仕事と休息を妨害することはできません。',
+            cn: '你可以安心值班，博士。破片地雷已经架设完毕，没有人能干扰你的工作和休息。',
+        },
+        'mon3tr': {
+            jp: '安心するといいよ。どれも通常業務だ。正しい手順なら何度も見てきた。それで、権限記録の変更はどうするのだったか？',
+            cn: '放心好了，都是常规工作，正确的处理流程我看过很多次。更改权限记录怎么操作来着？',
+        },
+        'xingyuan': {
+            jp: 'オッケー、これ全部やったことあるから、問題ないよ！ただ一つだけ先に言っておくけど、ドクター、夜中に書類の山を持ってきて今晩中によろしくとかはなしだからね。',
+            cn: '行，这些我都做过，不会碰到什么困难的。但是有一点我得和你说清楚，博士，可不能大晚上拿着一堆文件让我当晚就出结果哦。',
+        },
+        'texas': {
+            jp: '次の任務はドクターの身辺警護か。',
+            cn: '我接下来的任务是保护博士你的安全。',
+        },
     };
 
     // Loading screen audio
@@ -116,12 +168,19 @@ const App = (() => {
             simulateLoading();
 
             // Cache character card refs (skip null refs)
-            const cardIds = ['amiya', 'eyjafjalla', 'goldenglow', 'mudrock', 'la-pluma', 'logos', 'honeyberry', 'haruka', 'wisdel', 'zuole'];
+            const cardIds = ['amiya', 'eyjafjalla', 'goldenglow', 'mudrock', 'la-pluma', 'logos', 'honeyberry', 'haruka', 'wisdel', 'zuole', 'magallan', 'shu', 'surtr', 'xinoge', 'lin', 'lappland', 'executor', 'mon3tr', 'xingyuan', 'texas'];
             cardIds.forEach(id => {
                 const card = document.getElementById('card-' + id);
                 if (card) {
                     characterCards[id] = card;
                     card.addEventListener('click', () => switchCharacter(id));
+                    // Keyboard accessibility
+                    card.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            switchCharacter(id);
+                        }
+                    });
                 } else {
                     console.warn('Character card not found: card-' + id);
                 }
@@ -193,6 +252,22 @@ const App = (() => {
             const btnSaveTts = document.getElementById('btn-save-tts-settings');
             if (btnSaveTts) btnSaveTts.addEventListener('click', saveTtsSettings);
 
+            // Bind guide button
+            const btnOpenGuide = document.getElementById('btn-open-guide');
+            const btnCloseGuide = document.getElementById('btn-close-guide');
+            const guideOverlay = document.getElementById('guide-overlay');
+            if (btnOpenGuide) btnOpenGuide.addEventListener('click', () => guideOverlay.classList.add('active'));
+            if (btnCloseGuide) btnCloseGuide.addEventListener('click', () => guideOverlay.classList.remove('active'));
+            if (guideOverlay) {
+                guideOverlay.querySelector('.guide-backdrop').addEventListener('click', () => guideOverlay.classList.remove('active'));
+                // ESC to close
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && guideOverlay.classList.contains('active')) {
+                        guideOverlay.classList.remove('active');
+                    }
+                });
+            }
+
             // Bind TTS password toggle buttons
             const btnToggleTtsPw = document.querySelector('.btn-toggle-tts-pw');
             const btnToggleTtsAkPw = document.querySelector('.btn-toggle-tts-ak-pw');
@@ -206,14 +281,17 @@ const App = (() => {
                 updateLangToggleDisplay();
             }
 
+            // 官网动效 · 右侧面板滚动暗示
+            initScrollHint();
+
             // Initialize sub-modules
             TTSManager.init();
             ChatManager.init();
             MusicPlayer.init();
             TiltEffect.init();
 
-            // Preload voice files in background (WAV files can be large)
-            cardIds.forEach(id => preloadVoice(id));
+            // Preload only first 3 voice files to avoid bandwidth spike (rest load on demand)
+            cardIds.slice(0, 3).forEach(id => preloadVoice(id));
 
             // Initialize Live2D with timeout (max 8s)
             try {
@@ -230,6 +308,7 @@ const App = (() => {
             const activeChar = Storage.getActiveCharacter();
             if (activeChar) {
                 setActiveCard(activeChar);
+                updateWatermark(activeChar);
             }
 
             // Sync mobile dropdown initial value
@@ -247,24 +326,29 @@ const App = (() => {
         }
     }
 
+    let _loadingInterval = null;
+
     function simulateLoading() {
         const bar = document.getElementById('loading-bar');
         const percent = document.getElementById('loading-percent');
 
+        // 官网动效 · 几何引导线入场
+        const geoGuides = document.getElementById('geo-guides');
+        if (geoGuides) {
+            geoGuides.classList.add('entering');
+        }
+
         let progress = 0;
-        const interval = setInterval(() => {
+        _loadingInterval = setInterval(() => {
             progress += Math.random() * 25;
             if (progress >= 100) {
                 progress = 100;
-                clearInterval(interval);
+                clearInterval(_loadingInterval);
+                _loadingInterval = null;
             }
-            bar.style.width = Math.floor(progress) + '%';
-            percent.textContent = Math.floor(progress);
+            if (bar) bar.style.width = Math.floor(progress) + '%';
+            if (percent) percent.textContent = Math.floor(progress);
         }, 200);
-
-        // Store interval for cleanup
-        window._loadingInterval = interval;
-        window._loadingTarget = 100;
     }
 
     function finishLoading() {
@@ -273,8 +357,19 @@ const App = (() => {
         const loadingScreen = document.getElementById('loading-screen');
         const appContainer = document.getElementById('app-container');
 
+        // 官网动效 · 几何引导线退场
+        const geoGuides = document.getElementById('geo-guides');
+        if (geoGuides) {
+            geoGuides.classList.remove('entering');
+            geoGuides.classList.add('exiting');
+            // 退场动画完成后隐藏
+            setTimeout(() => {
+                geoGuides.classList.add('hidden');
+            }, 800);
+        }
+
         // Ensure 100%
-        if (window._loadingInterval) clearInterval(window._loadingInterval);
+        if (_loadingInterval) { clearInterval(_loadingInterval); _loadingInterval = null; }
         if (bar) bar.style.width = '100%';
         if (percent) percent.textContent = '100';
 
@@ -338,6 +433,45 @@ const App = (() => {
         } catch (e) {
             console.warn('Live2D switch error:', e);
         }
+
+        // 7. 官网动效 · 更新背景水印文字
+        updateWatermark(characterId);
+    }
+
+    const WATERMARK_NAMES = {
+        'amiya': 'AMIYA',
+        'eyjafjalla': 'EYJAFJALLA',
+        'goldenglow': 'GOLDENGLOW',
+        'mudrock': 'MUDROCK',
+        'la-pluma': 'LA PLUMA',
+        'logos': 'LOGOS',
+        'honeyberry': 'HONEYBERRY',
+        'haruka': 'HARUKA',
+        'wisdel': "WIS'ADEL",
+        'zuole': 'ZUO LE',
+        'magallan': 'MAGALLAN',
+        'shu': 'SHU',
+        'surtr': 'SURTR',
+        'xinoge': 'CANTABILE',
+        'lin': 'LIN',
+        'lappland': 'LAPPLAND',
+        'executor': 'EXECUTOR',
+        'mon3tr': 'Mon3tr',
+        'xingyuan': 'ASTGENNE',
+        'texas': 'TEXAS',
+    };
+    function updateWatermark(characterId) {
+        const watermark = document.querySelector('.live2d-watermark');
+        if (watermark) {
+            const name = WATERMARK_NAMES[characterId];
+            if (name) {
+                watermark.style.opacity = '0';
+                setTimeout(() => {
+                    watermark.textContent = name;
+                    watermark.style.opacity = '1';
+                }, 200);
+            }
+        }
     }
 
     function showSubtitle(characterId) {
@@ -353,7 +487,9 @@ const App = (() => {
 
     function setActiveCard(characterId) {
         Object.entries(characterCards).forEach(([id, card]) => {
-            card.classList.toggle('active', id === characterId);
+            const isActive = id === characterId;
+            card.classList.toggle('active', isActive);
+            card.setAttribute('aria-pressed', String(isActive));
         });
     }
 
@@ -387,6 +523,13 @@ const App = (() => {
 
         Storage.setApiConfig(config);
         showToast('CONFIG SAVED // Settings updated', 'success');
+
+        // 按钮闪烁反馈
+        const btn = document.getElementById('btn-save-settings');
+        if (btn) {
+            btn.classList.add('saved');
+            setTimeout(() => btn.classList.remove('saved'), 800);
+        }
     }
 
     /* ============================================================
@@ -410,6 +553,13 @@ const App = (() => {
         Storage.setTtsProxyUrl(proxyUrl);
         Storage.setTtsConfig({ apiKey, appId, accessKey });
         TTSManager.reloadConfig();
+
+        // 按钮闪烁反馈
+        const btn = document.getElementById('btn-save-tts-settings');
+        if (btn) {
+            btn.classList.add('saved');
+            setTimeout(() => btn.classList.remove('saved'), 800);
+        }
 
         const status = document.getElementById('tts-settings-status');
         if (status) {
@@ -454,6 +604,32 @@ const App = (() => {
         const input = document.getElementById('api-key');
         const isPassword = input.type === 'password';
         input.type = isPassword ? 'text' : 'password';
+    }
+
+    /* 官网动效 · 滚动暗示控制器 */
+    function initScrollHint() {
+        const scrollHint = document.getElementById('scroll-hint');
+        const rightPanel = document.getElementById('right-panel');
+        if (!scrollHint || !rightPanel) return;
+
+        let ticking = false;
+        const onScroll = () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    scrollHint.classList.toggle('hidden', rightPanel.scrollTop > 60);
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+        rightPanel.addEventListener('scroll', onScroll, { passive: true });
+
+        // 初始显示，2s 后如果未滚动过则显示
+        setTimeout(() => {
+            if (rightPanel.scrollTop <= 60) {
+                scrollHint.classList.remove('hidden');
+            }
+        }, 1500);
     }
 
     /** Show a toast notification */
