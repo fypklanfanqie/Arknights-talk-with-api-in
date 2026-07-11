@@ -1,0 +1,12 @@
+{
+  "name": "tts-proxy-fn",
+  "version": "1.0.0",
+  "description": "火山引擎 TTS HTTP 代理云函数 (CloudBase)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

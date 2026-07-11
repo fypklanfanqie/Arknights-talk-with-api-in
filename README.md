@@ -47,10 +47,13 @@ python -m http.server 8080
 
 ### TTS 语音合成
 
-TTS 功能通过 Cloudflare Worker 代理调用，Worker 代码位于 `workers/` 目录：
+TTS 功能通过自建 **CloudBase 云函数 (HTTP 函数)** 代理调用火山引擎，代码位于 `workers/cloudbase-tts-fn/` 目录。
 
-1. 将 `workers/tts-proxy.js` 部署到 Cloudflare Workers
-2. 在 `js/main.js` 中配置 Worker URL（默认使用本地代理）
+- 已部署的 TTS 代理地址：`https://lanfanqie-d8go1l51d56f44d20.service.tcloudbase.com/tts`
+- 前端 `js/tts.js` 已内置该默认代理，代理地址留空即用。也可在设置面板填写自己的代理覆盖。
+- 部署方式：`workers/cloudbase-tts-fn/` 目录下执行 `tcb fn deploy tts-proxy --httpFn --path /tts --force`（需 `scf_bootstrap` + 监听 9000 的 `server.js`）
+
+如需改用 Cloudflare Worker，代码见 `workers/tts-proxy.js`。
 
 ## 项目结构
 

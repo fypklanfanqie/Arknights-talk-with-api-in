@@ -104,8 +104,13 @@ const TTSManager = (() => {
         const requestId = generateUUID();
 
         // 验证配置
-        // 默认使用公共代理，用户可在设置中覆盖
-        const actualProxy = proxyUrl || 'https://tts-proxy.lanfanqie.workers.dev';
+        // 默认回退到自建 CloudBase TTS 代理 (已部署)。
+        // 用户也可在设置中填写自己的代理地址进行覆盖。
+        const DEFAULT_TTS_PROXY = 'https://lanfanqie-d8go1l51d56f44d20.service.tcloudbase.com/tts';
+        if (!proxyUrl) {
+            proxyUrl = DEFAULT_TTS_PROXY;
+        }
+        const actualProxy = proxyUrl;
         console.log('[TTS] 代理:', actualProxy);
 
         if (!hasCredentials()) {
@@ -170,7 +175,7 @@ const TTSManager = (() => {
                 errorMsg += ': ' + errorText.slice(0, 200);
             }
             if (response.status === 502) {
-                errorMsg = '代理连接失败 — 请检查 Cloudflare Worker 是否正常运行';
+                errorMsg = '代理连接失败 — 请检查你部署的 TTS 代理 (Cloudflare Worker / CloudBase 云托管) 是否正常运行';
             }
             throw new Error('TTS 错误: ' + errorMsg);
         }

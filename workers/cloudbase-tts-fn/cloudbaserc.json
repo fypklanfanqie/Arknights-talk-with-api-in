@@ -1,0 +1,15 @@
+{
+  "envId": "lanfanqie-d8go1l51d56f44d20",
+  "functionRoot": ".",
+  "functions": [
+    {
+      "name": "tts-proxy",
+      "runtime": "Nodejs16.13",
+      "handler": "index.main",
+      "memorySize": 256,
+      "timeout": 30,
+      "installDependency": true,
+      "isHttpFunction": true
+    }
+  ]
+}
