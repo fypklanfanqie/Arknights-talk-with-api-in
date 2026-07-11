@@ -237,15 +237,16 @@ const MUSIC_LIBRARY = (() => {
 
         // =============================================
         // 系统 BGM（登录界面 / 战斗结算等）
-        // 来源：PRTS wiki 直链，无网易云版本
+        // 使用仓库内本地文件（music/）。PRTS wiki 直链在 GitHub Pages
+        // 上会被防盗链（Referer ACL）拦截，故改为本地文件以保证可播放。
         // =============================================
-        { id:'sys-01', title:'Rhodes Island',              titleCn:'初版登录界面曲',         titleEn:'Rhodes Island (Original)',   ep:'系统', url:'https://static.prts.wiki/deprecated/music/beta2_180603/m_sys_title_combine.mp3' },
-        { id:'sys-02', title:'Rhodes Island (2nd Edition)', titleCn:'罗德岛（第二版）',      titleEn:'Rhodes Island (2nd Edition)', ep:'系统', url:'https://static.prts.wiki/music/music/beta2_180603/m_sys_title_combine.mp3' },
-        { id:'sys-03', title:'生命流',                      titleEn:'Life Flow',               ep:'系统', url:'https://static.prts.wiki/music/music/beta1_180603/m_sys_void_combine.mp3' },
-        { id:'sys-04', title:'泛用型自动化解决方案0.3.2.9f2',  titleEn:'General-Purpose Auto-Solution 0.3.2.9f2', ep:'系统', url:'https://static.prts.wiki/music/music/beta3_181101/m_sys_science_combine.mp3' },
-        { id:'sys-05', title:'休憩',                        titleEn:'Rest',                    ep:'系统', url:'https://static.prts.wiki/music/music/obt/m_sys_shop_combine.mp3' },
-        { id:'sys-06', title:'终局抵抗者',                   titleEn:'Final Resistance',        ep:'系统', url:'https://static.prts.wiki/music/music/beta1_180603/m_bat_victory_combine.mp3' },
-        { id:'sys-07', title:'血液',                        titleEn:'Blood',                   ep:'系统', url:'https://static.prts.wiki/music/music/beta1_180603/m_bat_failed_combine.mp3' },
+        { id:'sys-01', title:'Rhodes Island',              titleCn:'初版登录界面曲',         titleEn:'Rhodes Island (Original)',   ep:'系统', url:'music/m_sys_title_combine.mp3' },
+        { id:'sys-02', title:'Rhodes Island (2nd Edition)', titleCn:'罗德岛（第二版）',      titleEn:'Rhodes Island (2nd Edition)', ep:'系统', url:'music/m_sys_title_combine.mp3' },
+        { id:'sys-03', title:'生命流',                      titleEn:'Life Flow',               ep:'系统', url:'music/m_sys_void_combine.mp3' },
+        { id:'sys-04', title:'泛用型自动化解决方案0.3.2.9f2',  titleEn:'General-Purpose Auto-Solution 0.3.2.9f2', ep:'系统', url:'music/m_sys_science_combine.mp3' },
+        { id:'sys-05', title:'休憩',                        titleEn:'Rest',                    ep:'系统', url:'music/m_sys_shop_combine.mp3' },
+        { id:'sys-06', title:'终局抵抗者',                   titleEn:'Final Resistance',        ep:'系统', url:'music/m_bat_victory_combine.mp3' },
+        { id:'sys-07', title:'血液',                        titleEn:'Blood',                   ep:'系统', url:'music/m_bat_failed_combine.mp3' },
     ];
 
     /** EP category display order */
