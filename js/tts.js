@@ -99,17 +99,21 @@ const TTSManager = (() => {
     // ================================================================
     async function synthesize(text, characterId) {
         const config = Storage.getTtsConfig();
-        const proxyUrl = Storage.getTtsProxyUrl();
+        let proxyUrl = Storage.getTtsProxyUrl();
         const voiceId = getVoiceId(currentLanguage, characterId);
         const requestId = generateUUID();
 
-        // 验证配置
         // 默认回退到自建 CloudBase TTS 代理 (已部署)。
         // 用户也可在设置中填写自己的代理地址进行覆盖。
         const DEFAULT_TTS_PROXY = 'https://lanfanqie-d8go1l51d56f44d20.service.tcloudbase.com/tts';
-        if (!proxyUrl) {
+
+        // 若未设置代理，或仍在使用旧的 Cloudflare Workers 代理
+        // (workers.dev 域名在中国大陆被 GFW 封锁，需自动切换)
+        if (!proxyUrl || proxyUrl.includes('workers.dev')) {
             proxyUrl = DEFAULT_TTS_PROXY;
+            console.log('[TTS] 已自动切换到 CloudBase 代理 (workers.dev 在中国不可用)');
         }
+
         const actualProxy = proxyUrl;
         console.log('[TTS] 代理:', actualProxy);
 
