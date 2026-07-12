@@ -16,6 +16,7 @@ const Storage = (() => {
         TTS_ACCESS_KEY: 'tts_access_key',
         TTS_LANGUAGE: 'tts_language',
         TTS_PROXY_URL: 'tts_proxy_url',
+        TTS_CHARACTER_VOICES: 'tts_character_voices',
     };
 
     function key(k) {
@@ -148,6 +149,24 @@ const Storage = (() => {
         /** Set TTS proxy URL */
         setTtsProxyUrl(url) {
             this.set(KEYS.TTS_PROXY_URL, url || '');
+        },
+
+        /** Get character voice IDs config — { characterId: { zh: 'S_xxx', ja: 'S_yyy' }, ... } */
+        getCharacterVoices() {
+            return this.get(KEYS.TTS_CHARACTER_VOICES) || {};
+        },
+
+        /** Save character voice IDs config */
+        setCharacterVoices(voices) {
+            // 清理空值：去除所有空语言的条目
+            const cleaned = {};
+            for (const [charId, langs] of Object.entries(voices)) {
+                const entry = {};
+                if (langs.zh && langs.zh.trim()) entry.zh = langs.zh.trim();
+                if (langs.ja && langs.ja.trim()) entry.ja = langs.ja.trim();
+                if (Object.keys(entry).length > 0) cleaned[charId] = entry;
+            }
+            this.set(KEYS.TTS_CHARACTER_VOICES, cleaned);
         },
 
         KEYS,

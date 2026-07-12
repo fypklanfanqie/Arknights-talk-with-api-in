@@ -252,6 +252,17 @@ const App = (() => {
             const btnSaveTts = document.getElementById('btn-save-tts-settings');
             if (btnSaveTts) btnSaveTts.addEventListener('click', saveTtsSettings);
 
+            // Bind 添加角色音色按钮
+            const btnAddVoice = document.getElementById('btn-add-character-voice');
+            if (btnAddVoice) {
+                btnAddVoice.addEventListener('click', () => {
+                    const container = document.getElementById('character-voice-rows');
+                    if (container) {
+                        addCharacterVoiceRowTo(container, getCharacterNameMap(), '', '', '');
+                    }
+                });
+            }
+
             // Bind guide button
             const btnOpenGuide = document.getElementById('btn-open-guide');
             const btnCloseGuide = document.getElementById('btn-close-guide');
@@ -542,6 +553,101 @@ const App = (() => {
         document.getElementById('tts-api-key').value = ttsConfig.apiKey || '';
         document.getElementById('tts-app-id').value = ttsConfig.appId || '';
         document.getElementById('tts-access-key').value = ttsConfig.accessKey || '';
+
+        // 角色音色映射 — 动态行
+        renderCharacterVoiceRows(Storage.getCharacterVoices());
+    }
+
+    /* 获取角色 ID → 显示名称的映射 */
+    function getCharacterNameMap() {
+        const map = {};
+        if (window.ARKNIGHTS_CHARACTERS) {
+            for (const [id, def] of Object.entries(window.ARKNIGHTS_CHARACTERS)) {
+                map[id] = def.name || id;
+            }
+        }
+        // 兜底：从 DOM 卡片提取
+        if (Object.keys(map).length === 0) {
+            document.querySelectorAll('.character-card').forEach(card => {
+                const id = card.dataset.character;
+                const nameEl = card.querySelector('.character-card-name');
+                if (id && nameEl) map[id] = nameEl.textContent.trim();
+            });
+        }
+        return map;
+    }
+
+    /* 渲染音色映射动态行 */
+    function renderCharacterVoiceRows(voices) {
+        const container = document.getElementById('character-voice-rows');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const nameMap = getCharacterNameMap();
+        const entries = Object.entries(voices);
+
+        // 确保至少显示一行空行
+        if (entries.length === 0) {
+            entries.push(['', { zh: '', ja: '' }]);
+        }
+
+        entries.forEach(([charId, langs]) => {
+            addCharacterVoiceRowTo(container, nameMap, charId, langs.zh || '', langs.ja || '');
+        });
+    }
+
+    /* 向容器追加一行音色映射 */
+    function addCharacterVoiceRowTo(container, nameMap, charId, zh, ja) {
+        const row = document.createElement('div');
+        row.className = 'character-voice-row';
+        row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:4px;';
+
+        // 角色下拉
+        const sel = document.createElement('select');
+        sel.style.cssText = 'flex:1.5;min-width:0;font-size:12px;padding:4px 6px;background:#1a1a2e;color:#ccc;border:1px solid #333;border-radius:4px;';
+        sel.innerHTML = '<option value="">选择角色...</option>';
+        for (const [id, name] of Object.entries(nameMap).sort((a, b) => a[1].localeCompare(b[1], 'zh'))) {
+            sel.innerHTML += `<option value="${id}" ${id === charId ? 'selected' : ''}>${name}</option>`;
+        }
+
+        // 中文音色输入
+        const inpZh = document.createElement('input');
+        inpZh.type = 'text';
+        inpZh.placeholder = '中文音色 S_';
+        inpZh.value = zh;
+        inpZh.style.cssText = 'flex:1.5;min-width:0;font-size:12px;padding:4px 6px;background:#1a1a2e;color:#ccc;border:1px solid #333;border-radius:4px;';
+
+        // 日文音色输入
+        const inpJa = document.createElement('input');
+        inpJa.type = 'text';
+        inpJa.placeholder = '日文音色 S_';
+        inpJa.value = ja;
+        inpJa.style.cssText = 'flex:1.5;min-width:0;font-size:12px;padding:4px 6px;background:#1a1a2e;color:#ccc;border:1px solid #333;border-radius:4px;';
+
+        // 删除按钮
+        const btnDel = document.createElement('button');
+        btnDel.type = 'button';
+        btnDel.textContent = '✕';
+        btnDel.title = '移除';
+        btnDel.style.cssText = 'flex:0 0 28px;height:28px;font-size:14px;line-height:1;padding:0;background:transparent;color:#f66;border:1px solid #533;border-radius:4px;cursor:pointer;';
+        btnDel.addEventListener('click', () => {
+            row.remove();
+            ensureAtLeastOneRow();
+        });
+
+        row.appendChild(sel);
+        row.appendChild(inpZh);
+        row.appendChild(inpJa);
+        row.appendChild(btnDel);
+        container.appendChild(row);
+    }
+
+    /* 确保始终至少有一行空行 */
+    function ensureAtLeastOneRow() {
+        const container = document.getElementById('character-voice-rows');
+        if (container && container.querySelectorAll('.character-voice-row').length === 0) {
+            addCharacterVoiceRowTo(container, getCharacterNameMap(), '', '', '');
+        }
     }
 
     function saveTtsSettings() {
@@ -552,6 +658,23 @@ const App = (() => {
 
         Storage.setTtsProxyUrl(proxyUrl);
         Storage.setTtsConfig({ apiKey, appId, accessKey });
+
+        // 收集所有音色映射行
+        const voices = {};
+        document.querySelectorAll('#character-voice-rows .character-voice-row').forEach(row => {
+            const sel = row.querySelector('select');
+            const inputs = row.querySelectorAll('input');
+            const charId = sel.value.trim();
+            const zh = inputs[0].value.trim();
+            const ja = inputs[1].value.trim();
+            if (charId && (zh || ja)) {
+                voices[charId] = {};
+                if (zh) voices[charId].zh = zh;
+                if (ja) voices[charId].ja = ja;
+            }
+        });
+        Storage.setCharacterVoices(voices);
+
         TTSManager.reloadConfig();
 
         // 按钮闪烁反馈

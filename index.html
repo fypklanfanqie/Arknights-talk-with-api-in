@@ -39,8 +39,8 @@
     </script>
 
     <!-- pixi-live2d-display (registers as PIXI.live2d.Live2DModel) -->
-    <script defer src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.0/dist/index.min.js" crossorigin="anonymous"
-            onerror="console.warn('pixi-live2d-display CDN failed, trying fallback...');var s=document.createElement('script');s.src='https://s4.zstatic.net/npm/pixi-live2d-display@0.5.0/dist/index.min.js';document.head.appendChild(s);">
+    <script defer src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js" crossorigin="anonymous"
+            onerror="console.warn('pixi-live2d-display CDN failed, trying fallback...');var s=document.createElement('script');s.src='https://s4.zstatic.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js';document.head.appendChild(s);">
     </script>
 
     <!-- Live2D diagnostic: verify runtime globals are set after all libs load -->
@@ -357,6 +357,14 @@
                             </button>
                         </div>
                     </div>
+                    <!-- 角色音色 ID 设置 -->
+                    <div class="form-group" style="margin-top:8px;">
+                        <label style="font-weight:600;">🎤 角色音色映射 <span class="label-hint">(去火山引擎「声音复刻」克隆音色后填入)</span></label>
+                    </div>
+                    <div id="character-voice-rows" style="margin-bottom:8px;">
+                        <!-- 动态行由 JS 渲染 -->
+                    </div>
+                    <button type="button" id="btn-add-character-voice" class="btn-save" style="margin-bottom:12px; padding:6px 14px; font-size:12px; width:auto;">+ 添加角色音色</button>
                     <button class="btn-save" id="btn-save-tts-settings">保存 TTS 设置</button>
                     <div class="settings-status" id="tts-settings-status"></div>
                 </div>
@@ -736,7 +744,7 @@
                             <span class="feature-icon">🎤</span>
                             <div>
                                 <strong>TTS 语音合成</strong>
-                                <p>部分角色支持中日双语音色，采用火山引擎豆包 2.0 语音合成技术，通过 Cloudflare Worker 代理转发。</p>
+                                <p>所有角色均可自定义中日双语音色，采用火山引擎豆包 2.0 语音合成 + 声音复刻技术。</p>
                             </div>
                         </div>
                         <div class="guide-feature-item">
@@ -817,13 +825,14 @@
 
                 <section class="guide-section">
                     <h2>🔊 TTS 语音配置</h2>
-                    <p>TTS 采用火山引擎豆包语音合成 2.0，通过 Cloudflare Worker 代理转发请求。</p>
+                    <p>TTS 采用火山引擎豆包语音合成 2.0，通过自建 CloudBase 代理转发请求。</p>
                     <ol class="guide-steps">
                         <li>注册 <a href="https://www.volcengine.com" target="_blank">火山引擎</a> 账号</li>
                         <li>开通「语音合成」服务，获取 API Key</li>
                         <li>在 TTS 设置区域填入 API Key</li>
                         <li>代理地址已内置自建 CloudBase 代理，留空即可用；也可填入自己的 Cloudflare Worker / 云托管地址覆盖</li>
-                        <li><strong>仅羽毛笔和阿米娅支持 TTS 语音</strong></li>
+                        <li>去火山引擎「声音复刻」克隆角色声音，获得 S_xxx 格式的音色 ID</li>
+                        <li>在下方「角色音色映射」区域添加角色并填入对应音色 ID</li>
                     </ol>
                 </section>
 

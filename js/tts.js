@@ -32,15 +32,20 @@ const TTSManager = (() => {
     };
 
     function getVoiceId(lang, characterId) {
-        // 优先使用角色专用音色
+        // 1. 优先使用用户自定义音色 ID（从设置面板填入）
+        const userVoices = Storage.getCharacterVoices();
+        if (characterId && userVoices[characterId] && userVoices[characterId][lang]) {
+            return userVoices[characterId][lang];
+        }
+        // 2. 回退到硬编码的默认音色（开发者账号的复刻音色）
         if (characterId && CHARACTER_VOICE_IDS[characterId] && CHARACTER_VOICE_IDS[characterId][lang]) {
             return CHARACTER_VOICE_IDS[characterId][lang];
         }
-        // 回退到默认音色
+        // 3. 全局默认
         return VOICE_IDS[lang];
     }
 
-    const RESOURCE_ID = 'seed-icl-2.0';
+    const RESOURCE_ID = 'seed-icl-2.0';   // 即时克隆音色 (S_xxxOCG72 系列)
 
     // 火山引擎 HTTP V3 端点 (由 Worker 代理转发)
     const VOLC_ENDPOINT = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
@@ -72,9 +77,17 @@ const TTSManager = (() => {
 
     function getLanguage() { return currentLanguage; }
 
-    // 检查角色是否配置了专用 TTS 音色
+    // 检查角色是否配置了 TTS 音色（硬编码默认 或 用户自定义）
     function hasCharacterVoice(characterId) {
-        return !!(characterId && CHARACTER_VOICE_IDS[characterId]);
+        if (!characterId) return true; // 无角色 = 全局默认音色
+        // 用户自定义音色
+        const userVoices = Storage.getCharacterVoices();
+        if (userVoices[characterId] && (userVoices[characterId].zh || userVoices[characterId].ja)) {
+            return true;
+        }
+        // 硬编码默认音色
+        if (CHARACTER_VOICE_IDS[characterId]) return true;
+        return false;
     }
 
     function generateUUID() {
@@ -143,8 +156,12 @@ const TTSManager = (() => {
             headers['X-Api-Access-Key'] = config.accessKey;
         }
 
-        // V3 请求体
+        // V3 请求体 (参考: https://www.volcengine.com/docs/6561/1598757)
         const body = {
+            user: {
+                uid: 'mrfz-talk-terminal',
+            },
+            namespace: 'BidirectionalTTS',
             req_params: {
                 text: text.trim(),
                 speaker: voiceId,
@@ -152,6 +169,7 @@ const TTSManager = (() => {
                     format: 'mp3',
                     sample_rate: 24000,
                 },
+                additions: JSON.stringify({ disable_markdown_filter: true }),
             },
         };
 
@@ -200,6 +218,7 @@ const TTSManager = (() => {
             console.log('[TTS] JSON 响应, 长度:', text.length);
 
             let allBase64 = '';
+            let errorInfo = null;
             const lines = text.split('\n').filter(l => l.trim());
 
             console.log('[TTS] JSON 行数:', lines.length);
@@ -212,14 +231,47 @@ const TTSManager = (() => {
                     continue;
                 }
 
-                // 只收集有 data 的行, 其他的都是状态行忽略即可
-                if (json.data) {
+                // 收集音频 data (注意: 空字符串是 falsy, 需显式判断)
+                if (json.data != null && json.data !== '') {
                     allBase64 += json.data.replace(/\s/g, '');
+                }
+
+                // 捕获错误信息（火山引擎 V3 错误格式，code != 0 才算错误）
+                const isError = (json.code && json.code !== 0) || json.error
+                    || (json.message && json.message !== 'success');
+                if (!errorInfo && isError) {
+                    errorInfo = json;
                 }
             }
 
             if (!allBase64) {
-                throw new Error('火山引擎返回无音频数据');
+                // 尝试提取火山引擎返回的具体错误
+                if (errorInfo) {
+                    const errMsg = errorInfo.message || errorInfo.error
+                        || (typeof errorInfo.status === 'object' ? JSON.stringify(errorInfo.status) : '');
+                    const errCode = errorInfo.code || '';
+                    const errDesc = [errCode, errMsg].filter(Boolean).join(': ');
+                    console.error('[TTS] 火山引擎错误:', JSON.stringify(errorInfo));
+                    throw new Error('火山引擎错误: ' + (errDesc || JSON.stringify(errorInfo)));
+                }
+                // 兜底：把原始响应的关键字段拼入异常消息，方便诊断
+                console.error('[TTS] 无音频数据 — 原始响应 (全文):', text);
+                let snippet = text.slice(0, 300);
+                // 尝试提取嵌套的错误信息
+                let extraHint = '';
+                for (const line of lines) {
+                    try {
+                        const j = JSON.parse(line.trim());
+                        const hdr = j.header || j.Header || {};
+                        const nestedCode = hdr.code || hdr.Code || '';
+                        const nestedMsg = hdr.message || hdr.Message || '';
+                        if (nestedCode || nestedMsg) {
+                            extraHint = ' [' + nestedCode + '] ' + nestedMsg;
+                            break;
+                        }
+                    } catch (_) {}
+                }
+                throw new Error('火山引擎返回无音频数据' + extraHint + ' — 响应: ' + snippet);
             }
 
             // Base64 解码所有音频
@@ -332,7 +384,7 @@ const TTSManager = (() => {
 
         // 仅允许配置了 TTS 音色的角色使用语音
         if (characterId && !hasCharacterVoice(characterId)) {
-            throw new Error('当前角色不支持 TTS 语音');
+            throw new Error('该角色未配置 TTS 音色，请在设置中「角色音色映射」添加');
         }
 
         if (isPlaying) stopAll();

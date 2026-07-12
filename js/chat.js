@@ -272,8 +272,30 @@ const ChatManager = (() => {
      */
     function cleanTtsText(text) {
         return text
-            .replace(/[（(][^）)]*[）)]/g, '')   // 去掉中文/英文括号内容
-            .replace(/\s+/g, ' ')                // 合并多余空格
+            // 去掉 Markdown 代码块 (``` ... ```)
+            .replace(/```[\s\S]*?```/g, '')
+            // 去掉行内代码 (`...`)
+            .replace(/`([^`]+)`/g, '$1')
+            // 去掉 LaTeX 数学公式 ($$...$$, $...$, \(...\), \[...\])
+            .replace(/\$\$[\s\S]*?\$\$/g, '')
+            .replace(/\$([^$]+)\$/g, '$1')
+            .replace(/\\\([\s\S]*?\\\)/g, '')
+            .replace(/\\\[[\s\S]*?\\\]/g, '')
+            // 去掉 LaTeX 命令残余 (\frac, \sqrt, \int, \sum 等)
+            .replace(/\\[a-zA-Z]+(\{[^}]*\})*/g, '')
+            // 去掉反斜杠残余
+            .replace(/\\/g, '')
+            // 去掉中文/英文括号内容（动作描述）
+            .replace(/[（(][^）)]*[）)]/g, '')
+            // 去掉 Markdown 格式标记
+            .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
+            .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')
+            .replace(/#{1,6}\s*/g, '')
+            .replace(/~~([^~]+)~~/g, '$1')
+            // 去掉 URL
+            .replace(/https?:\/\/\S+/g, '链接')
+            // 合并多余空白
+            .replace(/\s+/g, ' ')
             .trim();
     }
 
