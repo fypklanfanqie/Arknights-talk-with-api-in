@@ -198,22 +198,16 @@ const App = (() => {
                 });
             }
 
-            // Settings collapse toggle (mobile)
+            // Settings drawer toggle (mobile)
             const btnToggleSettings = document.getElementById('btn-toggle-settings');
             const settingsPanel = document.getElementById('settings-panel');
             if (btnToggleSettings && settingsPanel) {
-                const isMobile = window.matchMedia('(max-width: 768px)').matches;
-                if (isMobile) {
-                    settingsPanel.classList.add('collapsed');
-                }
                 btnToggleSettings.addEventListener('click', () => {
-                    settingsPanel.classList.toggle('collapsed');
-                });
-                window.matchMedia('(max-width: 768px)').addEventListener('change', (e) => {
-                    if (e.matches) {
-                        settingsPanel.classList.add('collapsed');
+                    // Use MobileUI if available, fallback to class toggle
+                    if (window.MobileUI && window.MobileUI.toggleSettings) {
+                        window.MobileUI.toggleSettings();
                     } else {
-                        settingsPanel.classList.remove('collapsed');
+                        settingsPanel.classList.toggle('collapsed');
                     }
                 });
             }

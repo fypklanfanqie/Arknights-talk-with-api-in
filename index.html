@@ -234,6 +234,9 @@
                             <span class="lang-char" id="lang-char">中</span>
                             <span class="lang-arrow">⇄</span>
                         </button>
+                        <button class="btn-ghost btn-settings-gear" id="btn-settings-gear" title="设置" aria-label="打开设置">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" fill="currentColor"/></svg>
+                        </button>
                         <button class="btn-ghost" id="btn-clear-chat" title="Clear chat">
                             <svg viewBox="0 0 24 24" width="16" height="16"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
                             CLEAR
@@ -718,6 +721,25 @@
         </div>
     </div>
 
+    <!-- ============ MOBILE BOTTOM TAB BAR (hidden on desktop) ============ -->
+    <nav class="mobile-tab-bar" id="mobile-tab-bar" role="tablist" aria-label="移动端导航">
+        <button class="mobile-tab active" data-tab="chat" role="tab" aria-selected="true" aria-controls="middle-panel">
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z" fill="currentColor"/><path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z" fill="currentColor"/></svg>
+            <span>聊天</span>
+        </button>
+        <button class="mobile-tab" data-tab="characters" role="tab" aria-selected="false" aria-controls="mobile-characters-panel">
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/></svg>
+            <span>角色</span>
+        </button>
+        <button class="mobile-tab" data-tab="music" role="tab" aria-selected="false" aria-controls="mobile-music-panel">
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" fill="currentColor"/></svg>
+            <span>音乐</span>
+        </button>
+    </nav>
+
+    <!-- ============ MOBILE SETTINGS DRAWER BACKDROP ============ -->
+    <div class="settings-drawer-backdrop" id="settings-drawer-backdrop" aria-hidden="true"></div>
+
     <!-- Guide Overlay -->
     <div id="guide-overlay">
         <div class="guide-backdrop"></div>
@@ -873,5 +895,156 @@
     <script src="js/tts.js"></script>
     <script src="js/chat.js"></script>
     <script src="js/main.js"></script>
+
+    <!-- Mobile drawer + tab bar controller -->
+    <script>
+    (function() {
+        var isMobile = window.matchMedia('(max-width: 768px)').matches;
+        var activeTab = 'chat';
+
+        var tabBar = document.getElementById('mobile-tab-bar');
+        var tabs = document.querySelectorAll('.mobile-tab');
+        var leftPanel = document.getElementById('left-panel');
+        var middlePanel = document.getElementById('middle-panel');
+        var rightPanel = document.getElementById('right-panel');
+        var settingsPanel = document.getElementById('settings-panel');
+        var settingsBackdrop = document.getElementById('settings-drawer-backdrop');
+        var settingsGear = document.getElementById('btn-settings-gear');
+
+        // ---- Tab switching ----
+        function showTab(tabName) {
+            activeTab = tabName;
+
+            // Update tab button states
+            tabs.forEach(function(t) {
+                t.classList.toggle('active', t.getAttribute('data-tab') === tabName);
+                t.setAttribute('aria-selected', t.getAttribute('data-tab') === tabName ? 'true' : 'false');
+            });
+
+            // Show/hide panels
+            if (leftPanel) {
+                leftPanel.classList.toggle('mobile-panel-visible', tabName === 'music');
+            }
+            if (middlePanel) {
+                middlePanel.classList.toggle('mobile-panel-hidden', tabName !== 'chat');
+            }
+            if (rightPanel) {
+                rightPanel.classList.toggle('mobile-panel-visible', tabName === 'characters');
+            }
+
+            // Close settings drawer when switching tabs
+            closeSettingsDrawer();
+
+            // When switching to music tab, ensure music UI renders properly
+            if (tabName === 'music' && typeof MusicManager !== 'undefined' && MusicManager.renderLibrary) {
+                setTimeout(function() { MusicManager.renderLibrary(); }, 100);
+            }
+        }
+
+        tabs.forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                var tabName = this.getAttribute('data-tab');
+                if (tabName) showTab(tabName);
+            });
+        });
+
+        // ---- Settings drawer ----
+        function openSettingsDrawer() {
+            if (settingsPanel) settingsPanel.classList.add('drawer-open');
+            if (settingsBackdrop) settingsBackdrop.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSettingsDrawer() {
+            if (settingsPanel) settingsPanel.classList.remove('drawer-open');
+            if (settingsBackdrop) settingsBackdrop.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function toggleSettingsDrawer() {
+            if (settingsPanel && settingsPanel.classList.contains('drawer-open')) {
+                closeSettingsDrawer();
+            } else {
+                openSettingsDrawer();
+            }
+        }
+
+        if (settingsGear) {
+            settingsGear.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleSettingsDrawer();
+            });
+        }
+
+        if (settingsBackdrop) {
+            settingsBackdrop.addEventListener('click', function() {
+                closeSettingsDrawer();
+            });
+        }
+
+        // ---- Character card click → auto-switch to chat tab ----
+        // Use event delegation on character cards
+        document.addEventListener('click', function(e) {
+            var card = e.target.closest('.character-card');
+            if (card && isMobile && activeTab === 'characters') {
+                // Let the existing click handler run (switches character)
+                // Then auto-switch to chat tab after a short delay
+                setTimeout(function() {
+                    if (activeTab === 'characters') {
+                        showTab('chat');
+                    }
+                }, 200);
+            }
+        });
+
+        // ---- Mobile char select dropdown → stay on chat tab ----
+        var mobileCharSelect = document.getElementById('mobile-char-select');
+        if (mobileCharSelect) {
+            mobileCharSelect.addEventListener('change', function() {
+                if (isMobile && activeTab !== 'chat') {
+                    showTab('chat');
+                }
+            });
+        }
+
+        // ---- Handle window resize ----
+        window.matchMedia('(max-width: 768px)').addEventListener('change', function(e) {
+            isMobile = e.matches;
+            if (!isMobile) {
+                // Reset desktop state
+                closeSettingsDrawer();
+                if (leftPanel) leftPanel.classList.remove('mobile-panel-visible');
+                if (middlePanel) middlePanel.classList.remove('mobile-panel-hidden');
+                if (rightPanel) rightPanel.classList.remove('mobile-panel-visible');
+                document.body.style.overflow = '';
+            } else {
+                // Restore mobile state
+                showTab(activeTab);
+            }
+        });
+
+        // ---- Initialize ----
+        if (isMobile) {
+            // Ensure settings panel can appear as an independent drawer
+            // (moves it out of #right-panel so visibility:hidden on parent doesn't block it)
+            if (settingsPanel && rightPanel && rightPanel.contains(settingsPanel)) {
+                document.body.insertBefore(settingsPanel, document.body.firstChild);
+            }
+            showTab('chat');
+            // Ensure settings is hidden on initial load
+            closeSettingsDrawer();
+        }
+
+        // Expose for other scripts
+        window.MobileUI = {
+            showTab: showTab,
+            openSettings: openSettingsDrawer,
+            closeSettings: closeSettingsDrawer,
+            toggleSettings: toggleSettingsDrawer,
+            getActiveTab: function() { return activeTab; }
+        };
+    })();
+    </script>
 </body>
 </html>

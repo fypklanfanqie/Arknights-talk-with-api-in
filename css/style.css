@@ -2488,6 +2488,15 @@ button:focus-visible {
    ============================================================ */
 
 /* --- Tablet / Medium screens (769px - 1100px) --- */
+/* Mobile bottom tab bar - hidden on desktop, shown inside media queries */
+.mobile-tab-bar { display: none; }
+
+/* Settings gear button in chat header - hidden on desktop */
+.btn-settings-gear { display: none !important; }
+
+/* Settings drawer backdrop - hidden on desktop */
+.settings-drawer-backdrop { display: none; }
+
 @media (max-width: 1100px) {
     #app-container {
         grid-template-columns: 1fr;
@@ -2540,41 +2549,80 @@ button:focus-visible {
     html, body {
         touch-action: manipulation;
         overscroll-behavior: none;
-    }
-
-    /* === GRID LAYOUT RESTRUCTURE: Chat as primary element === */
-    #app-container {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr auto;
         overflow: hidden;
-        gap: 6px;
-        padding: 6px;
-        /* iOS safe area padding */
-        padding-top: max(6px, env(safe-area-inset-top));
-        padding-bottom: max(6px, env(safe-area-inset-bottom));
-        padding-left: max(6px, env(safe-area-inset-left));
-        padding-right: max(6px, env(safe-area-inset-right));
     }
 
-    /* Left panel: auto-height with internal scroll, capped */
-    #left-panel {
+    /* ================================================================
+       DRAWER LAYOUT RESTRUCTURE
+       - Single-column: chat fills the screen
+       - Bottom tab bar: Chat / Characters / Music
+       - Left panel → music tab overlay
+       - Right panel → characters tab overlay / settings drawer
+       ================================================================ */
+
+    /* === APP CONTAINER: Single column, chat-only === */
+    #app-container {
+        display: flex;
         flex-direction: column;
-        max-height: 30vh;
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+        gap: 0;
+        padding: 0;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: calc(64px + env(safe-area-inset-bottom));
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+
+    /* === LEFT PANEL: Hidden from grid, shown as music tab overlay === */
+    #left-panel {
+        position: fixed;
+        inset: 0;
+        top: 0;
+        z-index: 50;
+        flex-direction: column;
         overflow-y: auto;
-        flex-shrink: 0;
+        background: var(--bg-primary);
+        padding-bottom: 80px;
+        padding-top: env(safe-area-inset-top);
+        visibility: hidden;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s, visibility 0.2s;
+    }
+    #left-panel.mobile-panel-visible {
+        visibility: visible;
+        pointer-events: auto;
+        opacity: 1;
+        display: flex;
     }
     #live2d-container {
-        flex: 1;
+        flex: none;
         border-bottom: 1px solid var(--acrylic-border);
         border-right: none;
+        max-height: 35vh;
     }
 
-    /* Middle panel: fills remaining space, internal scroll via chat-messages */
+    /* === MIDDLE PANEL: Primary view — fills available space === */
     #middle-panel {
+        flex: 1;
         min-height: 0;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    #middle-panel.mobile-panel-hidden {
+        display: none;
+    }
+    #chat-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
     }
     .chat-messages {
+        flex: 1;
         padding: 10px;
         gap: 8px;
     }
@@ -2599,25 +2647,274 @@ button:focus-visible {
         white-space: nowrap;
     }
 
-    /* Right panel: capped with internal scroll */
+    /* === RIGHT PANEL: Hidden from grid, shown as characters tab overlay === */
     #right-panel {
+        position: fixed;
+        inset: 0;
+        top: 0;
+        z-index: 50;
         flex-direction: column;
-        max-height: 35vh;
         overflow-y: auto;
-        overflow-x: hidden;
-        gap: 0;
+        background: var(--bg-primary);
+        padding-bottom: 80px;
+        padding-top: env(safe-area-inset-top);
+        visibility: hidden;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s, visibility 0.2s;
+    }
+    #right-panel.mobile-panel-visible {
+        visibility: visible;
+        pointer-events: auto;
+        opacity: 1;
+        display: flex;
     }
 
-    /* === iOS SAFE AREAS === */
-    .chat-input-area {
-        padding-bottom: max(8px, env(safe-area-inset-bottom));
+    /* ================================================================
+       SETTINGS DRAWER — slides from top over everything
+       ================================================================ */
+    #settings-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 200;
+        max-height: 70vh;
+        overflow-y: auto;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--acrylic-border);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        transform: translateY(-100%);
+        transition: transform 0.35s var(--ease-out-expo);
+        padding: 0;
+        visibility: visible;
     }
-    #toast-container {
-        top: max(10px, env(safe-area-inset-top));
-        right: max(10px, env(safe-area-inset-right));
+    #settings-panel.drawer-open {
+        transform: translateY(0);
+    }
+    #settings-panel .panel-label {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--bg-secondary);
+    }
+    #settings-panel .settings-form {
+        padding: 10px 14px;
+        padding-bottom: 20px;
     }
 
-    /* === TOUCH TARGETS: Minimum 44px === */
+    /* Settings drawer backdrop */
+    .settings-drawer-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 190;
+        background: rgba(0,0,0,0.55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s var(--ease-out-expo);
+    }
+    .settings-drawer-backdrop.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Hide old settings toggle button */
+    .settings-toggle-btn {
+        display: none !important;
+    }
+
+    /* Show settings gear in chat header */
+    .btn-settings-gear {
+        display: flex !important;
+    }
+
+    /* ================================================================
+       MOBILE BOTTOM TAB BAR
+       ================================================================ */
+    .mobile-tab-bar {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        height: 64px;
+        padding-bottom: env(safe-area-inset-bottom);
+        background: rgba(10, 10, 15, 0.94);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-top: 1px solid var(--acrylic-border);
+        align-items: stretch;
+    }
+    .mobile-tab {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        background: none;
+        border: none;
+        color: var(--text-dim);
+        cursor: pointer;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        transition: color var(--transition-fast);
+        -webkit-tap-highlight-color: transparent;
+        padding: 0;
+        min-height: 44px;
+    }
+    .mobile-tab.active {
+        color: var(--gold);
+    }
+    .mobile-tab svg {
+        opacity: 0.7;
+        transition: opacity var(--transition-fast);
+    }
+    .mobile-tab.active svg {
+        opacity: 1;
+    }
+
+    /* ================================================================
+       CHARACTERS TAB — full-screen character grid
+       ================================================================ */
+    #character-cards {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 12px;
+        padding-bottom: 80px;
+    }
+    .character-card {
+        min-width: 0;
+    }
+    .character-card-inner {
+        padding: 10px;
+    }
+    .character-card-name {
+        font-size: 14px;
+    }
+    .character-card-title {
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .character-card-race {
+        font-size: 9px;
+    }
+    .character-code {
+        font-size: 9px;
+    }
+    /* Disable mix-blend-mode on mobile (rendering bugs) */
+    .character-img {
+        mix-blend-mode: normal;
+        filter: contrast(1.05);
+    }
+
+    /* ================================================================
+       MUSIC TAB — full-screen music player
+       ================================================================ */
+    #music-player {
+        width: 100%;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+    #music-player .panel-label {
+        font-size: 9px;
+        letter-spacing: 2px;
+        padding: 10px 12px;
+    }
+    .music-info {
+        padding: 10px 14px 4px;
+    }
+    .music-title {
+        font-size: 16px;
+    }
+    .music-artist {
+        font-size: 11px;
+    }
+    .music-waveform {
+        display: flex;
+    }
+    .music-controls {
+        gap: 16px;
+        padding: 8px 14px;
+        justify-content: center;
+    }
+    .music-progress {
+        padding: 8px 14px;
+    }
+    .music-volume {
+        padding: 4px 14px 8px;
+        gap: 8px;
+    }
+    .volume-slider {
+        width: auto;
+        flex: 1;
+    }
+    .music-library {
+        flex: 1;
+        max-height: none;
+        overflow-y: auto;
+        padding-bottom: 80px;
+    }
+    .lib-track {
+        padding: 10px 12px;
+    }
+    .lib-track-title {
+        font-size: 14px;
+    }
+    .lib-track-star {
+        font-size: 16px;
+        width: 28px;
+        min-width: 28px;
+        min-height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .music-ep-tabs {
+        gap: 4px;
+        padding: 6px 12px 4px;
+    }
+    .ep-tab {
+        font-size: 10px;
+        padding: 6px 12px;
+    }
+    .music-search-row {
+        padding: 8px 12px;
+    }
+    .music-search-input {
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+    .music-btn-filter {
+        min-width: 40px;
+        min-height: 40px;
+        padding: 10px;
+    }
+    .music-search-icon {
+        width: 18px;
+        height: 18px;
+    }
+    .music-track-count {
+        font-size: 10px;
+        padding: 4px 12px 6px;
+    }
+    .music-btn-fav {
+        min-width: 40px;
+        min-height: 40px;
+        padding: 10px;
+    }
+
+    /* ================================================================
+       TOUCH TARGETS: Minimum 44px
+       ================================================================ */
     .music-btn {
         min-width: 44px;
         min-height: 44px;
@@ -2676,7 +2973,7 @@ button:focus-visible {
     .form-group select {
         min-height: 44px;
         padding: 10px 12px;
-        font-size: 16px; /* prevents iOS zoom on focus */
+        font-size: 16px;
     }
     .volume-slider {
         height: 6px;
@@ -2694,92 +2991,15 @@ button:focus-visible {
         padding: 8px 10px;
     }
 
-    /* === SETTINGS COLLAPSE ANIMATION FIX === */
-    #settings-panel {
-        border-bottom: 1px solid var(--acrylic-border);
-        max-height: 600px; /* numeric value enables CSS transition */
-        overflow: hidden;
-        transition: max-height 0.4s var(--ease-out-expo);
+    /* === MOBILE CHARACTER SWITCHER (dropdown in chat header) === */
+    #mobile-char-switcher {
+        display: flex;
     }
-    #settings-panel.collapsed {
-        max-height: 0;
-        border-bottom: none;
-    }
-    #settings-panel .settings-form {
-        overflow: hidden;
-        transition: opacity 0.2s var(--ease-out-expo), padding 0.3s var(--ease-out-expo);
-    }
-    #settings-panel.collapsed .settings-form {
-        opacity: 0;
-        padding-top: 0;
-        padding-bottom: 0;
-    }
-
-    /* Settings toggle button */
-    .settings-toggle-btn {
-        display: flex !important;
+    .chat-header-right {
+        display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 6px;
-        width: 100%;
-        min-height: 44px;
-        background: rgba(0,0,0,0.25);
-        border: none;
-        border-bottom: 1px solid var(--acrylic-border);
-        color: var(--gold-dim);
-        cursor: pointer;
-        padding: 12px 14px;
-        font-family: var(--font-mono);
-        font-size: 11px;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        transition: all var(--transition-fast);
-    }
-    .settings-toggle-btn:hover {
-        color: var(--gold);
-        background: rgba(201, 168, 124, 0.05);
-    }
-    .settings-toggle-btn .toggle-arrow {
-        display: inline-block;
-        transition: transform 0.3s var(--ease-out-expo);
-        font-size: 10px;
-    }
-    #settings-panel.collapsed + .settings-toggle-btn .toggle-arrow {
-        transform: rotate(-90deg);
-    }
-
-    /* === CHARACTER CARDS === */
-    #character-cards {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-        padding: 8px;
-    }
-    .character-card {
-        min-width: 0;
-    }
-    .character-card-inner {
-        padding: 8px;
-    }
-    .character-card-name {
-        font-size: 13px;
-    }
-    .character-card-title {
-        font-size: 9px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .character-card-race {
-        font-size: 8px;
-    }
-    .character-code {
-        font-size: 8px;
-    }
-    /* Disable mix-blend-mode on mobile (rendering bugs) */
-    .character-img {
-        mix-blend-mode: normal;
-        filter: contrast(1.05);
+        gap: 4px;
+        padding: 0 6px;
     }
 
     /* === SMALLER PANEL LABELS === */
@@ -2789,15 +3009,10 @@ button:focus-visible {
         padding: 6px 10px;
     }
 
-    /* === MOBILE CHARACTER SWITCHER === */
-    #mobile-char-switcher {
-        display: flex;
-    }
-    .chat-header-right {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 0 8px;
+    /* === iOS SAFE AREAS === */
+    #toast-container {
+        top: max(10px, env(safe-area-inset-top));
+        right: max(10px, env(safe-area-inset-right));
     }
 
     /* === TOASTS: Responsive sizing === */
@@ -2807,118 +3022,17 @@ button:focus-visible {
         max-width: min(320px, calc(100vw - 40px));
     }
 
-    /* === MUSIC PLAYER COMPACT MODE === */
-    #music-player {
-        width: 100%;
-        flex-shrink: 1;
-    }
-    #music-player .panel-label {
-        font-size: 7px;
-        letter-spacing: 1.5px;
-        padding: 5px 8px;
-    }
-    .music-info {
-        padding: 6px 8px 2px;
-    }
-    .music-title {
-        font-size: 12px;
-    }
-    .music-artist {
-        font-size: 8px;
-    }
-    .music-waveform {
-        display: none; /* decorative, save space */
-    }
-    .music-controls {
-        gap: 10px;
-        padding: 2px 8px;
-    }
-    .music-progress {
-        padding: 4px 8px;
-    }
-    .music-volume {
-        padding: 2px 8px 4px;
-        gap: 6px;
-    }
-    .volume-slider {
-        width: auto;
-        flex: 1;
-    }
-    .music-playlist {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        gap: 5px;
-        padding: 0 8px 6px;
-        scrollbar-width: none;
-    }
-    .music-playlist::-webkit-scrollbar {
-        display: none;
-    }
-
-    /* Music library compact on mobile */
-    .music-library {
-        max-height: 160px;
-    }
-    .lib-track {
-        padding: 8px 6px;
-    }
-    .lib-track-title {
-        font-size: 13px;
-    }
-    .lib-track-star {
-        font-size: 16px;
-        width: 24px;
-        min-width: 24px;
-        min-height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .music-ep-tabs {
-        gap: 3px;
-        padding: 4px 8px 2px;
-    }
-    .ep-tab {
-        font-size: 9px;
-        padding: 5px 10px;
-    }
-    .music-search-row {
-        padding: 4px 8px;
-    }
-    .music-search-input {
-        font-size: 13px;
-        padding: 7px 10px;
-    }
-    .music-btn-filter {
-        min-width: 36px;
-        min-height: 36px;
-        padding: 8px;
-    }
-    .music-search-icon {
-        width: 18px;
-        height: 18px;
-    }
-    .music-track-count {
-        font-size: 9px;
-        padding: 2px 8px 4px;
-    }
-    .music-btn-fav {
-        min-width: 36px;
-        min-height: 36px;
-        padding: 8px;
-    }
-
     /* === CHAT INPUT OPTIMIZATION === */
     .chat-input-area {
         padding: 8px 10px;
+        border-top: 1px solid var(--acrylic-border);
     }
     .chat-input-wrapper {
         padding: 7px 10px;
         gap: 8px;
     }
     #chat-input {
-        font-size: 16px; /* prevents iOS auto-zoom */
+        font-size: 16px;
     }
     .input-prompt {
         font-size: 16px;
@@ -2927,7 +3041,7 @@ button:focus-visible {
         font-size: 14px;
     }
     .chat-input-hint {
-        display: none; /* save vertical space */
+        display: none;
     }
 
     /* === KATEX MATH MOBILE SIZING === */
@@ -2946,7 +3060,6 @@ button:focus-visible {
     .message-bubble .katex {
         font-size: 1.15em !important;
     }
-    /* Wider formula scrollbar for touch */
     .katex-display::-webkit-scrollbar {
         height: 4px;
     }
@@ -2973,10 +3086,17 @@ button:focus-visible {
     @supports (padding-bottom: env(safe-area-inset-bottom)) {
         #toast-container {
             top: auto;
-            bottom: max(16px, env(safe-area-inset-bottom));
+            bottom: max(80px, calc(env(safe-area-inset-bottom) + 64px));
             right: max(10px, env(safe-area-inset-right));
         }
     }
+
+    /* Show mobile-only elements */
+    .mobile-tab-bar { display: flex; }
+    .btn-settings-gear { display: flex !important; }
+
+    /* Hide desktop-only elements */
+    .deck-hint { display: none; }
 }
 
 /* ============================================================
@@ -2984,18 +3104,7 @@ button:focus-visible {
    ============================================================ */
 @media (max-width: 380px) {
     #app-container {
-        gap: 4px;
-        padding: 4px;
-        padding-top: max(4px, env(safe-area-inset-top));
-        padding-bottom: max(4px, env(safe-area-inset-bottom));
-        padding-left: max(4px, env(safe-area-inset-left));
-        padding-right: max(4px, env(safe-area-inset-right));
-    }
-    #left-panel {
-        max-height: 25vh;
-    }
-    #right-panel {
-        max-height: 30vh;
+        gap: 2px;
     }
     .chat-messages {
         padding: 6px;
@@ -3009,14 +3118,14 @@ button:focus-visible {
         padding: 8px 10px;
     }
     #character-cards {
-        gap: 5px;
-        padding: 5px;
+        gap: 6px;
+        padding: 8px;
     }
     .character-card-inner {
-        padding: 5px;
+        padding: 6px;
     }
     .character-card-name {
-        font-size: 11px;
+        font-size: 12px;
     }
     .chat-character-name {
         font-size: 14px;
@@ -3037,30 +3146,11 @@ button:focus-visible {
         padding: 8px 10px;
         max-width: min(280px, calc(100vw - 32px));
     }
-    /* Music library — even more compact */
-    .music-library {
-        max-height: 120px;
-    }
-    .lib-track {
-        padding: 5px 4px;
-        gap: 4px;
-    }
-    .lib-track-title {
-        font-size: 11px;
-    }
-    .lib-track-sub {
-        font-size: 8px;
-    }
-    .lib-track-ep {
-        font-size: 6px;
-        padding: 1px 4px;
-    }
-    .ep-tab {
-        font-size: 8px;
-        padding: 4px 7px;
-    }
     .katex-display {
         padding: 0.4em 0.5em;
+    }
+    #settings-panel {
+        max-height: 80vh;
     }
 }
 
@@ -3074,6 +3164,7 @@ button:focus-visible {
     display: none;
 }
 
+/* Settings gear button in chat header - hidden on desktop */
 /* Mobile character dropdown in chat header */
 .mobile-char-select {
     background: rgba(0,0,0,0.3);
