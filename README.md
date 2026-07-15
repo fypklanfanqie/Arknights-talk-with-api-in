@@ -61,6 +61,10 @@
 - **Flex 弹性布局**：聊天区采用 `display: flex` + `100dvh` 撑满全屏，输入框吸附底部
 - **iOS 安全区域**：全面适配 `safe-area-inset-*`，避开刘海/底部指示条，兼容 Safari 全屏模式
 - **触摸优化**：按钮最小 44×44px 触摸目标，防止 iOS 双击缩放，`overscroll-behavior: none` 禁止橡皮筋回弹
+- <img width="1080" height="2400" alt="Screenshot_2026-07-15-21-48-31-278_com microsoft" src="https://github.com/user-attachments/assets/294e965c-c885-46d3-b9f6-40c7c45ae542" />
+- <img width="1080" height="2400" alt="Screenshot_2026-07-15-21-48-24-022_com microsoft" src="https://github.com/user-attachments/assets/13623a9b-ad10-4274-8bd3-132c2b9d84ea" />
+
+
 
 ## 快速开始
 
