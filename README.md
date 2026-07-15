@@ -7,8 +7,6 @@
 ## 在线预览
 
 - GitHub Pages: https://fypklanfanqie.github.io/Arknights-talk-with-api-in
-- Gitee Pages: https://lan-fanqie.gitee.io/Arknights-talk-with-api-in
-
 ## 功能特性
 
 ### 🤖 角色扮演对话
