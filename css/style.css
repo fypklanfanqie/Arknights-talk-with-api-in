@@ -2079,7 +2079,7 @@ button:focus-visible {
     flex-shrink: 0;
 }
 .guide-header-label {
-    font-family: var(--font-display);
+    font-family: var(--font-display, 'Bender', sans-serif);
     font-size: 13px;
     letter-spacing: 2px;
     color: var(--gold);
@@ -2107,7 +2107,7 @@ button:focus-visible {
 .guide-section { margin-bottom: 32px; }
 .guide-section:last-child { margin-bottom: 0; }
 .guide-section h2 {
-    font-family: var(--font-display);
+    font-family: var(--font-display, 'Bender', sans-serif);
     font-size: 14px;
     color: var(--gold);
     letter-spacing: 1.5px;
@@ -2160,7 +2160,7 @@ button:focus-visible {
     display: block;
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text-bright);
+    color: var(--text-bright, var(--text-primary));
     letter-spacing: 1px;
     margin-bottom: 2px;
 }
@@ -3638,6 +3638,646 @@ button:focus-visible {
 /* Message text wrapper */
 .msg-text {
     /* allow inline content to flow naturally */
+}
+
+/* ============================================================
+   自定义角色导入（CUSTOM CHARACTER IMPORT）
+   ============================================================ */
+
+/* 选择区标题行 + 导入按钮 */
+.panel-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.panel-label-row .panel-label { margin-bottom: 0; }
+/* ═══════════════════════════════════════════════════════════
+   IMPORT BUTTON (panel header)
+   ═══════════════════════════════════════════════════════════ */
+.btn-import-char {
+    background: rgba(201, 168, 124, 0.08);
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    cursor: pointer;
+    clip-path: var(--input-clip);
+    transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.btn-import-char:hover {
+    background: var(--gold-glow);
+    border-color: var(--gold);
+    box-shadow: 0 0 12px var(--gold-glow);
+    transform: translateY(-1px);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   IMPORT OVERLAY · Arknights Terminal Redesign
+   ═══════════════════════════════════════════════════════════ */
+#import-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s var(--ease-out-expo);
+}
+#import-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+.import-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+/* ── Panel shell ── */
+.import-panel {
+    position: relative;
+    width: min(960px, 96vw);
+    max-height: 90vh;
+    background: linear-gradient(180deg,
+        #12121c 0%,
+        #0e0e18 40%,
+        #0a0a12 100%
+    );
+    border: 1px solid var(--gold-dim);
+    clip-path: var(--panel-clip);
+    display: flex;
+    flex-direction: column;
+    box-shadow:
+        0 0 80px rgba(0, 0, 0, 0.7),
+        0 0 30px var(--gold-glow),
+        inset 0 1px 0 rgba(201, 168, 124, 0.04);
+    animation: imp-panel-in 0.4s var(--ease-out-expo);
+}
+@keyframes imp-panel-in {
+    0%   { opacity: 0; transform: scale(1.04) translateY(-8px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Top accent line ── */
+.import-top-accent {
+    position: absolute;
+    top: 0; left: 20px; right: 20px;
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(201, 168, 124, 0.25) 15%,
+        var(--gold) 50%,
+        rgba(201, 168, 124, 0.25) 85%,
+        transparent 100%
+    );
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* ── Header ── */
+.import-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px 24px 12px;
+    flex-shrink: 0;
+}
+.import-header-deco {
+    position: absolute;
+    left: 24px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ihd-l, .ihd-r {
+    width: 16px;
+    height: 1px;
+    background: var(--gold-dim);
+}
+.ihd-dot {
+    width: 4px; height: 4px;
+    background: var(--gold);
+    transform: rotate(45deg);
+}
+.import-header-label {
+    font-family: 'Bender', 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: var(--gold-bright);
+    text-shadow: 0 0 12px var(--gold-glow);
+    text-align: center;
+}
+.import-close-btn {
+    position: absolute;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    color: var(--gold-dim);
+    cursor: pointer;
+    padding: 6px;
+    display: grid;
+    place-items: center;
+    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+.import-close-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--gold-dim);
+}
+
+/* ── Body · Two-column layout ── */
+.import-body {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 24px;
+    padding: 6px 24px 18px;
+    overflow-y: auto;
+    flex: 1;
+    scroll-behavior: smooth;
+}
+.import-body::-webkit-scrollbar { width: 4px; }
+.import-body::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 2px; }
+.import-body::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Form column ── */
+.import-form-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* ── Fieldset sections ── */
+.imp-section {
+    border: 1px solid rgba(201, 168, 124, 0.08);
+    padding: 14px 16px 8px;
+    margin: 0;
+    background: rgba(201, 168, 124, 0.015);
+    clip-path: polygon(
+        0 10px, 10px 0,
+        calc(100% - 10px) 0, 100% 10px,
+        100% calc(100% - 10px), calc(100% - 10px) 100%,
+        10px 100%, 0 calc(100% - 10px)
+    );
+}
+.imp-section + .imp-section { margin-top: 8px; }
+
+.imp-section-legend {
+    font-family: 'Bender', 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-transform: uppercase;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.isl-icon {
+    font-size: 8px;
+    color: var(--gold-dim);
+    display: inline-block;
+    transform: rotate(45deg);
+}
+
+/* ── Fields ── */
+.import-field { margin-bottom: 10px; }
+.import-field > label,
+.import-asset > label {
+    display: block;
+    font-family: 'Bender', 'JetBrains Mono', 'Noto Sans SC', monospace;
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+}
+.import-field .req { color: var(--danger-bright); font-weight: bold; }
+.import-field .label-hint,
+.import-asset .label-hint {
+    text-transform: none;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    font-size: 9px;
+    margin-left: 2px;
+}
+.import-row {
+    display: flex;
+    gap: 10px;
+}
+.import-row .import-field { flex: 1; min-width: 0; }
+
+/* Inputs */
+.import-field input[type="text"],
+.import-asset input[type="text"],
+.import-field textarea {
+    width: 100%;
+    background: rgba(10, 10, 18, 0.7);
+    border: 1px solid rgba(201, 168, 124, 0.12);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', 'Noto Sans SC', monospace;
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 2px;
+    box-sizing: border-box;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+    clip-path: var(--input-clip);
+}
+.import-field input[type="text"]:focus,
+.import-asset input[type="text"]:focus,
+.import-field textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold-glow), 0 0 10px var(--gold-glow);
+    background: rgba(10, 10, 18, 0.9);
+}
+.import-field textarea {
+    resize: vertical;
+    line-height: 1.6;
+    min-height: 100px;
+}
+
+/* ── Upload zones ── */
+.imp-upload-zone {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: rgba(201, 168, 124, 0.04);
+    border: 1px dashed rgba(201, 168, 124, 0.2);
+    border-radius: 2px;
+    color: var(--gold-dim);
+    font-family: 'Bender', 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+    clip-path: var(--input-clip);
+}
+.imp-upload-zone:hover {
+    background: rgba(201, 168, 124, 0.08);
+    border-color: var(--gold-dim);
+    color: var(--gold);
+    box-shadow: 0 0 8px var(--gold-glow);
+}
+.imp-upload-zone svg { flex-shrink: 0; }
+
+/* Hide the native file input — label controls it */
+.import-asset-controls input[type="file"] {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.import-asset-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.import-asset-controls input[type="text"] { flex: 1 1 160px; }
+.import-or {
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+}
+
+/* ── Preview images ── */
+.import-preview {
+    display: block;
+    max-width: 100%;
+    max-height: 130px;
+    margin-top: 8px;
+    border: 1px solid rgba(201, 168, 124, 0.12);
+    border-radius: 2px;
+    object-fit: contain;
+    background: #08080f;
+    clip-path: var(--input-clip);
+}
+.import-audio-preview {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    height: 36px;
+    filter: grayscale(0.3);
+}
+
+/* ── Copy field row ── */
+.import-with-copy {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+}
+.import-with-copy textarea,
+.import-with-copy input { flex: 1; min-width: 0; }
+.btn-copy {
+    flex: 0 0 auto;
+    background: rgba(201, 168, 124, 0.04);
+    border: 1px solid rgba(201, 168, 124, 0.15);
+    color: var(--gold-dim);
+    padding: 0 10px;
+    cursor: pointer;
+    clip-path: var(--input-clip);
+    transition: all var(--transition-fast);
+    display: grid;
+    place-items: center;
+}
+.btn-copy:hover {
+    background: var(--gold-glow);
+    border-color: var(--gold);
+    color: var(--gold-bright);
+    box-shadow: 0 0 8px var(--gold-glow);
+}
+
+/* ═══ PREVIEW CARD COLUMN ═══ */
+.import-preview-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding-top: 4px;
+}
+.imp-preview-label {
+    font-family: 'Bender', 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    width: 100%;
+    text-align: center;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(201, 168, 124, 0.08);
+}
+.imp-preview-hint {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+    letter-spacing: 0.5px;
+    line-height: 1.5;
+    max-width: 200px;
+}
+
+/* ── Preview card ── */
+.imp-preview-card {
+    position: relative;
+    width: 220px;
+    background: linear-gradient(180deg,
+        #151520 0%,
+        #0e0e18 50%,
+        #08080f 100%
+    );
+    border: 1px solid rgba(201, 168, 124, 0.2);
+    clip-path: polygon(
+        0 14px, 14px 0,
+        calc(100% - 14px) 0, 100% 14px,
+        100% calc(100% - 14px), calc(100% - 14px) 100%,
+        14px 100%, 0 calc(100% - 14px)
+    );
+    overflow: hidden;
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.5),
+        0 0 12px var(--gold-glow);
+    transition: box-shadow var(--transition-normal);
+}
+.imp-preview-card:hover {
+    box-shadow:
+        0 6px 32px rgba(0, 0, 0, 0.6),
+        0 0 20px var(--gold-glow);
+}
+
+/* Frame corners */
+.imp-card-frame { pointer-events: none; }
+.icf-corner {
+    position: absolute;
+    width: 20px; height: 20px;
+    z-index: 2;
+    pointer-events: none;
+}
+.icf-tl { top: 3px; left: 3px;
+    border-top: 1px solid var(--gold-dim); border-left: 1px solid var(--gold-dim); }
+.icf-tr { top: 3px; right: 3px;
+    border-top: 1px solid var(--gold-dim); border-right: 1px solid var(--gold-dim); }
+.icf-bl { bottom: 3px; left: 3px;
+    border-bottom: 1px solid var(--gold-dim); border-left: 1px solid var(--gold-dim); }
+.icf-br { bottom: 3px; right: 3px;
+    border-bottom: 1px solid var(--gold-dim); border-right: 1px solid var(--gold-dim); }
+
+/* Card image area */
+.imp-card-img-wrap {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #08080f;
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+}
+.imp-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.imp-card-img-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 1px;
+}
+.imp-card-img-placeholder svg { opacity: 0.2; }
+
+/* Card info */
+.imp-card-info {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.imp-card-name {
+    font-family: 'Bender', 'JetBrains Mono', 'Noto Sans SC', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+    line-height: 1.3;
+}
+.imp-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+}
+.icm-sep { color: var(--gold-dim); font-size: 8px; }
+.imp-card-role {
+    font-family: 'Bender', 'JetBrains Mono', 'Noto Sans SC', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin-top: 2px;
+}
+.imp-card-idline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(201, 168, 124, 0.08);
+}
+.icil-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+.icil-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    color: var(--gold-dim);
+}
+
+/* ═══ FOOTER ═══ */
+.import-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 24px;
+    border-top: 1px solid rgba(201, 168, 124, 0.1);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    background: rgba(0, 0, 0, 0.15);
+}
+.import-footer .btn-save {
+    width: auto;
+    flex: 0 0 auto;
+    margin-top: 0;
+    padding: 9px 20px;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.import-footer .btn-ghost { margin-top: 0; }
+.btn-del-import {
+    margin-left: auto;
+    border-color: rgba(181, 90, 90, 0.3) !important;
+    color: var(--danger-bright) !important;
+}
+.btn-del-import:hover {
+    background: rgba(139, 69, 69, 0.15) !important;
+    border-color: var(--danger-bright) !important;
+}
+
+/* 自定义角色卡片标识 + 编辑/删除按钮 */
+.character-card.custom {
+    position: relative;
+}
+.custom-badge {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 3;
+    background: var(--gold-dim);
+    color: #1a1a24;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    pointer-events: none;
+}
+.card-edit-btn,
+.card-del-btn {
+    position: absolute;
+    top: 4px;
+    z-index: 3;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--gold-dim);
+    background: rgba(14, 14, 22, 0.85);
+    color: var(--gold);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+.card-edit-btn { right: 36px; }
+.card-del-btn { right: 4px; color: var(--danger-bright); border-color: var(--danger); }
+.character-card.custom:hover .card-edit-btn,
+.character-card.custom:hover .card-del-btn,
+.character-card.custom:focus-within .card-edit-btn,
+.character-card.custom:focus-within .card-del-btn {
+    opacity: 1;
+}
+.card-edit-btn:hover { background: var(--gold-glow); color: var(--gold-bright); }
+.card-del-btn:hover { background: rgba(139, 69, 69, 0.2); color: #fff; }
+
+/* 移动端：按钮常驻可见，避免无 hover */
+@media (max-width: 768px) {
+    .card-edit-btn,
+    .card-del-btn {
+        opacity: 1;
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+    }
+    .import-row { flex-direction: column; gap: 0; }
+
+    /* Import panel → single-column on mobile */
+    .import-panel {
+        width: 100vw;
+        max-height: 100vh;
+        clip-path: none;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+    .import-body {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 6px 14px 14px;
+    }
+    .import-preview-col {
+        display: none;  /* 移动端隐藏预览列，节省空间 */
+    }
+    .import-header { padding: 14px 14px 8px; }
+    .import-header-label { font-size: 11px; letter-spacing: 2px; }
+    .import-header-deco { left: 10px; }
+    .import-close-btn { right: 10px; }
+    .import-footer { padding: 10px 14px; gap: 6px; }
+    .import-footer .btn-save { padding: 8px 14px; font-size: 10px; }
+    .imp-section { padding: 10px 10px 4px; }
+    .imp-preview-card { width: 100%; }
 }
 
 /* ============================================================

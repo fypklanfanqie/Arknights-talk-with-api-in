@@ -134,13 +134,19 @@ const Live2DManager = (() => {
         const fallbackImg = getFallbackImg();
         if (fallbackEl) fallbackEl.classList.remove('hidden');
         if (fallbackImg) {
-            const src = FALLBACK_IMAGES[characterId] || FALLBACK_IMAGES['amiya'];
+            const customSrc = CustomCharacters.getLive2dImg(characterId);
+            const src = customSrc || FALLBACK_IMAGES[characterId] || FALLBACK_IMAGES['amiya'];
             fallbackImg.src = src;
         }
 
         // Update model name
         const nameEl = getModelNameEl();
-        if (nameEl) nameEl.textContent = MODEL_NAMES[characterId] || characterId.toUpperCase();
+        if (nameEl) {
+            const cMeta = CustomCharacters.get(characterId);
+            nameEl.textContent = (cMeta && cMeta.name)
+                ? cMeta.name
+                : (MODEL_NAMES[characterId] || characterId.toUpperCase());
+        }
     }
 
     // --- Main init ---

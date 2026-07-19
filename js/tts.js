@@ -37,6 +37,11 @@ const TTSManager = (() => {
         if (characterId && userVoices[characterId] && userVoices[characterId][lang]) {
             return userVoices[characterId][lang];
         }
+        // 1.5 自定义导入角色时填写的音色码
+        const customVoices = CustomCharacters.getVoiceCodes(characterId);
+        if (customVoices && customVoices[lang]) {
+            return customVoices[lang];
+        }
         // 2. 回退到硬编码的默认音色（开发者账号的复刻音色）
         if (characterId && CHARACTER_VOICE_IDS[characterId] && CHARACTER_VOICE_IDS[characterId][lang]) {
             return CHARACTER_VOICE_IDS[characterId][lang];
@@ -85,6 +90,8 @@ const TTSManager = (() => {
         if (userVoices[characterId] && (userVoices[characterId].zh || userVoices[characterId].ja)) {
             return true;
         }
+        // 自定义导入角色时填写的音色码
+        if (CustomCharacters.getVoiceCodes(characterId)) return true;
         // 硬编码默认音色
         if (CHARACTER_VOICE_IDS[characterId]) return true;
         return false;

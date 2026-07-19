@@ -379,7 +379,10 @@
             </button>
 
             <!-- Character Cards (bottom) -->
-            <div class="panel-label">OPERATOR // SELECT</div>
+            <div class="panel-label-row">
+                <span class="panel-label">OPERATOR // SELECT</span>
+                <button type="button" id="btn-import-character" class="btn-import-char" title="导入自定义角色">＋ 导入角色</button>
+            </div>
             <div id="character-cards">
                 <!-- La Pluma Card -->
                 <div class="character-card active" data-character="la-pluma" id="card-la-pluma" tabindex="0" role="button" aria-pressed="true" aria-label="选择干员：羽毛笔">
@@ -877,6 +880,283 @@
         </div>
     </div>
 
+    <!-- 自定义角色导入弹窗 · Arknights Terminal Redesign -->
+    <div id="import-overlay">
+        <div class="import-backdrop"></div>
+        <div class="import-panel">
+            <!-- ── 顶部装饰线 ── -->
+            <div class="import-top-accent" aria-hidden="true"></div>
+
+            <div class="import-header">
+                <div class="import-header-deco" aria-hidden="true">
+                    <span class="ihd-l"></span><span class="ihd-dot"></span><span class="ihd-r"></span>
+                </div>
+                <div class="import-header-label" id="import-title">OPERATOR // IMPORT</div>
+                <button class="import-close-btn" id="btn-close-import" aria-label="关闭">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
+                </button>
+            </div>
+
+            <div class="import-body">
+                <!-- ═══ 左栏 · 表单 ═══ -->
+                <div class="import-form-col">
+
+                    <!-- ▸ 基本信息 -->
+                    <fieldset class="imp-section">
+                        <legend class="imp-section-legend">
+                            <span class="isl-icon">◈</span> 基本信息
+                        </legend>
+                        <div class="import-field">
+                            <label>角色名称 <span class="req">*</span></label>
+                            <input type="text" id="imp-name" placeholder="例如：自定义干员" autocomplete="off">
+                        </div>
+                        <div class="import-row">
+                            <div class="import-field">
+                                <label>代号 / 编号</label>
+                                <input type="text" id="imp-code" placeholder="可选，如 C001" autocomplete="off">
+                            </div>
+                            <div class="import-field">
+                                <label>种族</label>
+                                <input type="text" id="imp-race" placeholder="可选" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="import-field">
+                            <label>职位 / 定位</label>
+                            <input type="text" id="imp-role" placeholder="可选，如 战术终端干员" autocomplete="off">
+                        </div>
+                    </fieldset>
+
+                    <!-- ▸ 立绘资源 -->
+                    <fieldset class="imp-section">
+                        <legend class="imp-section-legend">
+                            <span class="isl-icon">◈</span> 立绘资源
+                        </legend>
+                        <div class="import-asset">
+                            <label>选择区立绘 <span class="label-hint">— 卡片显示</span></label>
+                            <div class="import-asset-controls">
+                                <label class="imp-upload-zone" for="imp-select-file">
+                                    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <span>上传图片</span>
+                                </label>
+                                <input type="file" id="imp-select-file" accept="image/*">
+                                <span class="import-or">或</span>
+                                <input type="text" id="imp-select-url" placeholder="粘贴图片 URL" autocomplete="off">
+                            </div>
+                            <img id="imp-select-preview" class="import-preview" alt="选择区域立绘预览" hidden>
+                        </div>
+                        <div class="import-asset">
+                            <label>Live2D 区立绘 <span class="label-hint">— 主展示图</span></label>
+                            <div class="import-asset-controls">
+                                <label class="imp-upload-zone" for="imp-live2d-file">
+                                    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <span>上传图片</span>
+                                </label>
+                                <input type="file" id="imp-live2d-file" accept="image/*">
+                                <span class="import-or">或</span>
+                                <input type="text" id="imp-live2d-url" placeholder="粘贴图片 URL" autocomplete="off">
+                            </div>
+                            <img id="imp-live2d-preview" class="import-preview" alt="Live2D 区立绘预览" hidden>
+                        </div>
+                    </fieldset>
+
+                    <!-- ▸ 语音资源 -->
+                    <fieldset class="imp-section">
+                        <legend class="imp-section-legend">
+                            <span class="isl-icon">◈</span> 语音资源
+                        </legend>
+                        <div class="import-asset">
+                            <label>点击角色触发的语音</label>
+                            <div class="import-asset-controls">
+                                <label class="imp-upload-zone" for="imp-voice-file">
+                                    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <span>上传音频</span>
+                                </label>
+                                <input type="file" id="imp-voice-file" accept="audio/*">
+                                <span class="import-or">或</span>
+                                <input type="text" id="imp-voice-url" placeholder="粘贴音频 URL" autocomplete="off">
+                            </div>
+                            <audio id="imp-voice-preview" class="import-audio-preview" controls hidden></audio>
+                        </div>
+                        <div class="import-row">
+                            <div class="import-field">
+                                <label>字幕 · 日语 <span class="label-hint">可选</span></label>
+                                <input type="text" id="imp-sub-jp" placeholder="例：ドクター、お疲れ様です" autocomplete="off">
+                            </div>
+                            <div class="import-field">
+                                <label>字幕 · 中文 <span class="label-hint">可选</span></label>
+                                <input type="text" id="imp-sub-cn" placeholder="例：博士，辛苦了" autocomplete="off">
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- ▸ AI 配置 -->
+                    <fieldset class="imp-section">
+                        <legend class="imp-section-legend">
+                            <span class="isl-icon">◈</span> AI 配置
+                        </legend>
+                        <div class="import-field">
+                            <label>系统提示词 (Prompt) <span class="req">*</span></label>
+                            <div class="import-with-copy">
+                                <textarea id="imp-prompt" rows="5" placeholder="你是罗德岛的战术终端干员，以角色的身份与博士对话……"></textarea>
+                                <button type="button" class="btn-copy" id="btn-copy-prompt" title="复制提示词">
+                                    <svg viewBox="0 0 24 24" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="import-row">
+                            <div class="import-field">
+                                <label>中文音色码</label>
+                                <div class="import-with-copy">
+                                    <input type="text" id="imp-voice-zh" placeholder="S_xxxx（火山引擎）" autocomplete="off">
+                                    <button type="button" class="btn-copy" id="btn-copy-zh" title="复制中文音色码">
+                                        <svg viewBox="0 0 24 24" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="import-field">
+                                <label>英文 / 日文音色码</label>
+                                <div class="import-with-copy">
+                                    <input type="text" id="imp-voice-ja" placeholder="S_xxxx（火山引擎）" autocomplete="off">
+                                    <button type="button" class="btn-copy" id="btn-copy-ja" title="复制英文/日文音色码">
+                                        <svg viewBox="0 0 24 24" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <!-- ═══ 右栏 · 实时预览卡 ═══ -->
+                <div class="import-preview-col">
+                    <div class="imp-preview-label">LIVE PREVIEW</div>
+                    <div class="imp-preview-card" id="imp-preview-card">
+                        <!-- PRTS 风格装饰边框 -->
+                        <div class="imp-card-frame">
+                            <span class="icf-corner icf-tl"></span>
+                            <span class="icf-corner icf-tr"></span>
+                            <span class="icf-corner icf-bl"></span>
+                            <span class="icf-corner icf-br"></span>
+                        </div>
+                        <!-- 图片区 -->
+                        <div class="imp-card-img-wrap">
+                            <img id="imp-card-img" class="imp-card-img" src="" alt="角色预览" hidden>
+                            <div class="imp-card-img-placeholder" id="imp-card-placeholder">
+                                <svg viewBox="0 0 24 24" width="32" height="32"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" opacity="0.3"/><path d="M3 17l5-5 3 3 4-4 6 6" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"/></svg>
+                                <span>选择立绘后预览</span>
+                            </div>
+                        </div>
+                        <!-- 信息区 -->
+                        <div class="imp-card-info">
+                            <div class="imp-card-name" id="imp-card-name">—</div>
+                            <div class="imp-card-meta">
+                                <span id="imp-card-code">—</span>
+                                <span class="icm-sep">/</span>
+                                <span id="imp-card-race">—</span>
+                            </div>
+                            <div class="imp-card-role" id="imp-card-role">—</div>
+                            <!-- 编码标识线 -->
+                            <div class="imp-card-idline">
+                                <span class="icil-label">OPERATOR ID</span>
+                                <span class="icil-val" id="imp-card-id">RHODES-UNKNOWN</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 提示 -->
+                    <div class="imp-preview-hint">填写左侧表单即可实时预览角色卡片效果</div>
+                </div>
+            </div>
+
+            <div class="import-footer">
+                <button type="button" class="btn-save" id="btn-save-import">
+                    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M17 21v-8H7v8M7 3v5h8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                    保存角色
+                </button>
+                <button type="button" class="btn-ghost" id="btn-cancel-import">取消</button>
+                <button type="button" class="btn-ghost" id="btn-export-import">导出 JSON</button>
+                <label class="btn-ghost" for="imp-json-file" id="btn-import-json">导入 JSON</label>
+                <input type="file" id="imp-json-file" accept="application/json,.json" hidden>
+                <button type="button" class="btn-ghost btn-del-import" id="btn-delete-import" hidden>删除角色</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import preview live-update script -->
+    <script>
+    (function() {
+        // Debounce helper
+        function debounce(fn, ms) { var t; return function() { clearTimeout(t); t = setTimeout(fn, ms); }; }
+
+        var cardName = document.getElementById('imp-card-name');
+        var cardCode = document.getElementById('imp-card-code');
+        var cardRace = document.getElementById('imp-card-race');
+        var cardRole = document.getElementById('imp-card-role');
+        var cardId   = document.getElementById('imp-card-id');
+        var cardImg  = document.getElementById('imp-card-img');
+        var cardPH   = document.getElementById('imp-card-placeholder');
+
+        function updatePreview() {
+            var name = (document.getElementById('imp-name').value || '').trim();
+            var code = (document.getElementById('imp-code').value || '').trim();
+            var race = (document.getElementById('imp-race').value || '').trim();
+            var role = (document.getElementById('imp-role').value || '').trim();
+
+            if (cardName) cardName.textContent = name || '—';
+            if (cardCode) cardCode.textContent = code || '—';
+            if (cardRace) cardRace.textContent = race || '—';
+            if (cardRole) cardRole.textContent = role || '—';
+            if (cardId) {
+                var idStr = code ? 'RHODES-' + code.toUpperCase().replace(/\s/g, '') : 'RHODES-UNKNOWN';
+                cardId.textContent = idStr;
+            }
+        }
+
+        // Update card image when select URL or file changes
+        function updateCardImage() {
+            var url = (document.getElementById('imp-select-url').value || '').trim();
+            var file = document.getElementById('imp-select-file');
+            var hasFile = file && file.files && file.files[0];
+
+            if (hasFile) {
+                if (cardImg) { cardImg.src = URL.createObjectURL(file.files[0]); cardImg.hidden = false; }
+                if (cardPH) cardPH.style.display = 'none';
+            } else if (url) {
+                if (cardImg) { cardImg.src = url; cardImg.hidden = false; }
+                if (cardPH) cardPH.style.display = 'none';
+            } else {
+                if (cardImg) { cardImg.removeAttribute('src'); cardImg.hidden = true; }
+                if (cardPH) cardPH.style.display = '';
+            }
+        }
+
+        var upd = debounce(updatePreview, 80);
+        var imgUpd = debounce(updateCardImage, 120);
+
+        ['imp-name', 'imp-code', 'imp-race', 'imp-role'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('input', upd);
+        });
+
+        var selUrl = document.getElementById('imp-select-url');
+        var selFile = document.getElementById('imp-select-file');
+        if (selUrl) selUrl.addEventListener('input', imgUpd);
+        if (selFile) selFile.addEventListener('change', imgUpd);
+
+        // Also update on reset — listen for the openImportModal call indirectly
+        // by observing class changes on overlay
+        var overlay = document.getElementById('import-overlay');
+        if (overlay) {
+            var obs = new MutationObserver(function(muts) {
+                muts.forEach(function(m) {
+                    if (m.attributeName === 'class' && overlay.classList.contains('active')) {
+                        setTimeout(function() { updatePreview(); updateCardImage(); }, 50);
+                    }
+                });
+            });
+            obs.observe(overlay, { attributes: true, attributeFilter: ['class'] });
+        }
+    })();
+    </script>
+
     <!-- Toast container -->
     <div id="toast-container"></div>
 
@@ -888,6 +1168,7 @@
     <script src="js/codeHighlight.js"></script>
     <script src="js/ocr.js"></script>
     <script src="js/storage.js"></script>
+    <script src="js/customCharacters.js"></script>
     <script src="js/tilt.js"></script>
     <script src="js/musicData.js"></script>
     <script src="js/music.js"></script>

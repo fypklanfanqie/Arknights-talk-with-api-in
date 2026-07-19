@@ -48,6 +48,19 @@ const App = (() => {
     }
 
     function getVoiceAudio(characterId) {
+        // 自定义角色优先：使用上传/URL 的语音
+        const customUrl = CustomCharacters.getVoiceUrl(characterId);
+        if (customUrl) {
+            let audio = voicePool[characterId];
+            if (!audio) {
+                audio = new Audio();
+                audio.preload = 'auto';
+                voicePool[characterId] = audio;
+            }
+            audio.src = customUrl;
+            audio.load();
+            return audio;
+        }
         // Reuse pooled audio, reset it for fresh playback
         const file = VOICE_FILES[characterId];
         if (!file) return null;
@@ -161,6 +174,13 @@ const App = (() => {
             subtitleJpEl = document.getElementById('subtitle-jp');
             subtitleCnEl = document.getElementById('subtitle-cn');
 
+            // 加载自定义角色（IndexedDB + localStorage），并入全局角色表
+            try {
+                await CustomCharacters.load();
+            } catch (e) {
+                console.warn('自定义角色加载失败:', e);
+            }
+
             // Play loading audio
             loadingAudio.play().catch(() => {});
 
@@ -185,6 +205,9 @@ const App = (() => {
                     console.warn('Character card not found: card-' + id);
                 }
             });
+
+            // 渲染自定义角色卡片
+            buildCustomCards();
 
             // Restore saved settings to form
             restoreSettings();
@@ -273,6 +296,9 @@ const App = (() => {
                 });
             }
 
+            // Bind 自定义角色导入弹窗
+            bindImportModal();
+
             // Bind TTS password toggle buttons
             const btnToggleTtsPw = document.querySelector('.btn-toggle-tts-pw');
             const btnToggleTtsAkPw = document.querySelector('.btn-toggle-tts-ak-pw');
@@ -321,6 +347,9 @@ const App = (() => {
             if (mobileCharSelectInit && activeChar) {
                 mobileCharSelectInit.value = activeChar;
             }
+
+            // 用（含自定义角色）的完整角色表重建移动端下拉
+            populateMobileCharSelect();
 
             // Show app
             finishLoading();
@@ -468,7 +497,8 @@ const App = (() => {
     function updateWatermark(characterId) {
         const watermark = document.querySelector('.live2d-watermark');
         if (watermark) {
-            const name = WATERMARK_NAMES[characterId];
+            const cMeta = CustomCharacters.get(characterId);
+            const name = WATERMARK_NAMES[characterId] || (cMeta ? (cMeta.name || '').toUpperCase() : null);
             if (name) {
                 watermark.style.opacity = '0';
                 setTimeout(() => {
@@ -480,6 +510,13 @@ const App = (() => {
     }
 
     function showSubtitle(characterId) {
+        // 自定义角色优先：使用自定义字幕
+        const customLine = CustomCharacters.getVoiceLine(characterId);
+        if (customLine && subtitleJpEl && subtitleCnEl) {
+            subtitleJpEl.textContent = customLine.jp;
+            subtitleCnEl.textContent = customLine.cn;
+            return;
+        }
         const lines = VOICE_LINES[characterId];
         if (lines && subtitleJpEl && subtitleCnEl) {
             subtitleJpEl.textContent = lines.jp;
@@ -762,6 +799,370 @@ const App = (() => {
             toast.classList.add('fade-out');
             setTimeout(() => toast.remove(), 300);
         }, 3000);
+    }
+
+    /* ============================================================
+       自定义角色导入 / 管理
+       ============================================================ */
+    let editingImportId = null;
+    const PLACEHOLDER_IMG = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280">' +
+        '<rect width="200" height="280" fill="#15151f"/>' +
+        '<text x="50%" y="50%" fill="#5a5650" font-size="14" font-family="sans-serif" text-anchor="middle" dominant-baseline="middle">无立绘</text></svg>'
+    );
+
+    function val(id) {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    }
+
+    function getAssetUrl(type, id) {
+        if (type === 'select') return CustomCharacters.getSelectImg(id);
+        if (type === 'live2d') return CustomCharacters.getLive2dImg(id);
+        if (type === 'voice') return CustomCharacters.getVoiceUrl(id);
+        return null;
+    }
+
+    function buildCustomCards() {
+        const container = document.getElementById('character-cards');
+        if (!container) return;
+        CustomCharacters.list().forEach(meta => addCustomCard(meta.id, false));
+        const active = Storage.getActiveCharacter();
+        if (active) setActiveCard(active);
+    }
+
+    function addCustomCard(id, syncActive) {
+        const container = document.getElementById('character-cards');
+        if (!container || document.getElementById('card-' + id)) return;
+        const meta = CustomCharacters.get(id);
+        if (!meta) return;
+
+        const card = document.createElement('div');
+        card.className = 'character-card custom';
+        card.dataset.character = id;
+        card.id = 'card-' + id;
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-pressed', 'false');
+        card.setAttribute('aria-label', '选择干员：' + (meta.name || id));
+
+        const selectImg = CustomCharacters.getSelectImg(id) || CustomCharacters.getLive2dImg(id) || PLACEHOLDER_IMG;
+        const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        card.innerHTML =
+            '<span class="custom-badge">自定义</span>' +
+            '<div class="character-card-inner">' +
+                '<div class="character-illustration">' +
+                    '<img src="' + selectImg + '" alt="' + esc(meta.name) + '" class="character-img" loading="lazy">' +
+                    '<div class="character-glow"></div>' +
+                '</div>' +
+                '<div class="character-info">' +
+                    '<div class="character-code">' + esc(meta.code || 'CUSTOM') + '</div>' +
+                    '<div class="character-card-name">' + esc(meta.name) + '</div>' +
+                    '<div class="character-card-title">' + esc(meta.role || '自定义角色') + '</div>' +
+                    '<div class="character-card-race">' + esc(meta.race) + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<button type="button" class="card-edit-btn" title="编辑" aria-label="编辑角色">✎</button>' +
+            '<button type="button" class="card-del-btn" title="删除" aria-label="删除角色">✕</button>';
+
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.card-edit-btn') || e.target.closest('.card-del-btn')) return;
+            switchCharacter(id);
+        });
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                switchCharacter(id);
+            }
+        });
+        card.querySelector('.card-edit-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openImportModal(id);
+        });
+        card.querySelector('.card-del-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteImport(id);
+        });
+
+        container.appendChild(card);
+        characterCards[id] = card;
+        if (syncActive !== false) {
+            const active = Storage.getActiveCharacter();
+            if (active) setActiveCard(active);
+        }
+    }
+
+    function removeCardEl(id) {
+        const card = document.getElementById('card-' + id);
+        if (card) card.remove();
+        delete characterCards[id];
+    }
+
+    function bindImportModal() {
+        const overlay = document.getElementById('import-overlay');
+        if (!overlay) return;
+
+        const btnOpen = document.getElementById('btn-import-character');
+        const btnClose = document.getElementById('btn-close-import');
+        const btnCancel = document.getElementById('btn-cancel-import');
+        const btnSave = document.getElementById('btn-save-import');
+        const btnDelete = document.getElementById('btn-delete-import');
+        const btnExport = document.getElementById('btn-export-import');
+        const fileJson = document.getElementById('imp-json-file');
+
+        if (btnOpen) btnOpen.addEventListener('click', () => openImportModal(null));
+        if (btnClose) btnClose.addEventListener('click', closeImportModal);
+        if (btnCancel) btnCancel.addEventListener('click', closeImportModal);
+        if (overlay.querySelector('.import-backdrop')) {
+            overlay.querySelector('.import-backdrop').addEventListener('click', closeImportModal);
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay.classList.contains('active')) closeImportModal();
+        });
+        if (btnSave) btnSave.addEventListener('click', saveImport);
+        if (btnDelete) btnDelete.addEventListener('click', () => deleteImport(editingImportId));
+
+        // 复制按钮
+        const bindCopy = (btnId, srcId) => {
+            const btn = document.getElementById(btnId);
+            if (btn) btn.addEventListener('click', () => copyText(val(srcId), btnId));
+        };
+        bindCopy('btn-copy-prompt', 'imp-prompt');
+        bindCopy('btn-copy-zh', 'imp-voice-zh');
+        bindCopy('btn-copy-ja', 'imp-voice-ja');
+
+        // 文件 / URL 选择时即时预览
+        const bindPreview = (type, previewId, isAudio) => {
+            const fileInput = document.getElementById('imp-' + type + '-file');
+            const urlInput = document.getElementById('imp-' + type + '-url');
+            const preview = document.getElementById(previewId);
+            if (fileInput) fileInput.addEventListener('change', () => {
+                if (fileInput.files && fileInput.files[0]) {
+                    preview.src = URL.createObjectURL(fileInput.files[0]);
+                    preview.hidden = false;
+                }
+            });
+            if (urlInput) urlInput.addEventListener('input', () => {
+                const u = urlInput.value.trim();
+                if (u) { preview.src = u; preview.hidden = false; }
+                else { preview.hidden = true; preview.removeAttribute('src'); }
+            });
+        };
+        bindPreview('select', 'imp-select-preview', false);
+        bindPreview('live2d', 'imp-live2d-preview', false);
+        bindPreview('voice', 'imp-voice-preview', true);
+
+        // 导出 / 导入 JSON
+        if (btnExport) btnExport.addEventListener('click', exportImportJSON);
+        if (fileJson) fileJson.addEventListener('change', importJSONFromFile);
+    }
+
+    function resetImportForm() {
+        ['imp-name', 'imp-code', 'imp-race', 'imp-role', 'imp-prompt', 'imp-voice-zh', 'imp-voice-ja',
+         'imp-sub-jp', 'imp-sub-cn', 'imp-select-url', 'imp-live2d-url', 'imp-voice-url'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = '';
+        });
+        ['imp-select-file', 'imp-live2d-file', 'imp-voice-file', 'imp-json-file'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = '';
+        });
+        ['imp-select-preview', 'imp-live2d-preview', 'imp-voice-preview'].forEach(id => {
+            const el = document.getElementById(id); if (el) { el.hidden = true; el.removeAttribute('src'); }
+        });
+    }
+
+    function prefillAssetPreview(type, m, urlInputPrefix, previewId, isAudio) {
+        const a = m[type];
+        const urlInput = document.getElementById(urlInputPrefix + '-url');
+        const preview = document.getElementById(previewId);
+        if (!a || !preview) { if (preview) preview.hidden = true; return; }
+        if (a.mode === 'url' && a.url) {
+            if (urlInput) urlInput.value = a.url;
+            preview.src = a.url; preview.hidden = false;
+        } else if (a.mode === 'blob') {
+            const u = getAssetUrl(type, m.id);
+            if (u) { preview.src = u; preview.hidden = false; }
+            else { preview.hidden = true; }
+        } else {
+            preview.hidden = true;
+        }
+    }
+
+    function openImportModal(editId) {
+        const overlay = document.getElementById('import-overlay');
+        if (!overlay) return;
+        editingImportId = editId || null;
+        resetImportForm();
+
+        const titleEl = document.getElementById('import-title');
+        const btnDelete = document.getElementById('btn-delete-import');
+        const btnExport = document.getElementById('btn-export-import');
+
+        if (editingImportId) {
+            const m = CustomCharacters.get(editingImportId);
+            if (m) {
+                document.getElementById('imp-name').value = m.name || '';
+                document.getElementById('imp-code').value = m.code || '';
+                document.getElementById('imp-race').value = m.race || '';
+                document.getElementById('imp-role').value = m.role || '';
+                document.getElementById('imp-prompt').value = m.systemPrompt || '';
+                document.getElementById('imp-voice-zh').value = m.voiceZh || '';
+                document.getElementById('imp-voice-ja').value = m.voiceJa || '';
+                document.getElementById('imp-sub-jp').value = m.subtitleJp || '';
+                document.getElementById('imp-sub-cn').value = m.subtitleCn || '';
+                prefillAssetPreview('select', m, 'imp-select', 'imp-select-preview', false);
+                prefillAssetPreview('live2d', m, 'imp-live2d', 'imp-live2d-preview', false);
+                prefillAssetPreview('voice', m, 'imp-voice', 'imp-voice-preview', true);
+            }
+            if (titleEl) titleEl.textContent = 'OPERATOR // EDIT';
+            if (btnDelete) btnDelete.hidden = false;
+            if (btnExport) btnExport.hidden = false;
+        } else {
+            if (titleEl) titleEl.textContent = 'OPERATOR // IMPORT';
+            if (btnDelete) btnDelete.hidden = true;
+            if (btnExport) btnExport.hidden = true;
+        }
+        overlay.classList.add('active');
+    }
+
+    function closeImportModal() {
+        const overlay = document.getElementById('import-overlay');
+        if (overlay) overlay.classList.remove('active');
+        editingImportId = null;
+    }
+
+    function readAsset(type, keep) {
+        const fileInput = document.getElementById('imp-' + type + '-file');
+        const urlInput = document.getElementById('imp-' + type + '-url');
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            return { mode: 'blob', file: fileInput.files[0] };
+        }
+        const url = urlInput ? urlInput.value.trim() : '';
+        if (url) return { mode: 'url', url };
+        // 编辑时未修改该素材则保留原有资源
+        if (keep && keep.mode && keep.mode !== 'none') return keep;
+        return { mode: 'none' };
+    }
+
+    async function saveImport() {
+        const name = val('imp-name');
+        const prompt = val('imp-prompt');
+        if (!name.trim() || !prompt.trim()) {
+            App.showToast('角色名称与系统提示词为必填项', 'error');
+            return;
+        }
+        const def = {
+            id: editingImportId || undefined,
+            name,
+            code: val('imp-code'),
+            role: val('imp-role'),
+            race: val('imp-race'),
+            systemPrompt: prompt,
+            voiceZh: val('imp-voice-zh'),
+            voiceJa: val('imp-voice-ja'),
+            subtitleJp: val('imp-sub-jp'),
+            subtitleCn: val('imp-sub-cn'),
+            select: readAsset('select', editingImportId ? (CustomCharacters.get(editingImportId) || {}).select : null),
+            live2d: readAsset('live2d', editingImportId ? (CustomCharacters.get(editingImportId) || {}).live2d : null),
+            voice: readAsset('voice', editingImportId ? (CustomCharacters.get(editingImportId) || {}).voice : null),
+        };
+        try {
+            const id = await CustomCharacters.save(def);
+            removeCardEl(id);
+            addCustomCard(id);
+            populateMobileCharSelect();
+            closeImportModal();
+            App.showToast('角色已保存', 'success');
+        } catch (e) {
+            App.showToast('保存失败：' + (e && e.message ? e.message : e), 'error');
+        }
+    }
+
+    async function copyText(text) {
+        const t = (text || '').trim();
+        if (!t) { App.showToast('没有可复制的内容', 'error'); return; }
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(t);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = t; document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); ta.remove();
+            }
+            App.showToast('已复制到剪贴板', 'success');
+        } catch (e) {
+            App.showToast('复制失败', 'error');
+        }
+    }
+
+    function populateMobileCharSelect() {
+        const sel = document.getElementById('mobile-char-select');
+        if (!sel) return;
+        const nameMap = getCharacterNameMap();
+        const current = sel.value;
+        sel.innerHTML = '';
+        Object.entries(nameMap)
+            .sort((a, b) => a[1].localeCompare(b[1], 'zh'))
+            .forEach(([id, name]) => {
+                const opt = document.createElement('option');
+                opt.value = id; opt.textContent = name;
+                sel.appendChild(opt);
+            });
+        if (nameMap[current]) sel.value = current;
+    }
+
+    async function exportImportJSON() {
+        if (!editingImportId) {
+            App.showToast('请先打开一个已保存的角色再导出', 'error');
+            return;
+        }
+        try {
+            const pkg = await CustomCharacters.exportJSON(editingImportId);
+            const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'character_' + (pkg.meta.name || 'custom') + '.json';
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            App.showToast('已导出角色 JSON', 'success');
+        } catch (e) {
+            App.showToast('导出失败：' + (e && e.message ? e.message : e), 'error');
+        }
+    }
+
+    async function importJSONFromFile(e) {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const pkg = JSON.parse(text);
+            const id = await CustomCharacters.importJSON(pkg);
+            removeCardEl(id);
+            addCustomCard(id);
+            populateMobileCharSelect();
+            closeImportModal();
+            App.showToast('已从 JSON 导入角色', 'success');
+        } catch (err) {
+            App.showToast('导入失败：' + (err && err.message ? err.message : err), 'error');
+        } finally {
+            e.target.value = '';
+        }
+    }
+
+    async function deleteImport(id) {
+        if (!id) return;
+        if (!window.confirm('确定删除该自定义角色？此操作不可撤销。')) return;
+        try {
+            await CustomCharacters.remove(id);
+            removeCardEl(id);
+            const active = Storage.getActiveCharacter();
+            if (active === id) switchCharacter('amiya');
+            populateMobileCharSelect();
+            closeImportModal();
+            App.showToast('角色已删除', 'success');
+        } catch (e) {
+            App.showToast('删除失败：' + (e && e.message ? e.message : e), 'error');
+        }
     }
 
     // Expose for other modules
