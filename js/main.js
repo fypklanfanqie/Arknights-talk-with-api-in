@@ -181,6 +181,17 @@ const App = (() => {
                 console.warn('自定义角色加载失败:', e);
             }
 
+            // 合并全量干员档案（不覆盖手写/自定义角色）
+            mergeExtraCharacters();
+
+            // 加载我的形象 / 自定义背景 / 视频配置与任务
+            try { await UserProfile.load(); } catch (e) { console.warn('我的形象加载失败:', e); }
+            try { await ChatBackground.load(); } catch (e) { console.warn('背景加载失败:', e); }
+            try {
+                await SeedanceVideo.load();
+                await SeedanceVideo.loadBackgroundBlob();
+            } catch (e) { console.warn('Seedance 加载失败:', e); }
+
             // Play loading audio
             loadingAudio.play().catch(() => {});
 
@@ -320,6 +331,16 @@ const App = (() => {
             ChatManager.init();
             MusicPlayer.init();
             TiltEffect.init();
+
+            // 新功能 UI 绑定
+            bindGroupChatUI();
+            bindCharacterSearch();
+            bindProfileUI();
+            bindBackgroundUI();
+            bindSeedanceUI();
+            bindPerfUI();
+            GroupChat.renderGroupList();
+            applyBgDim();
 
             // Preload only first 3 voice files to avoid bandwidth spike (rest load on demand)
             cardIds.slice(0, 3).forEach(id => preloadVoice(id));
@@ -798,6 +819,418 @@ const App = (() => {
         setTimeout(() => {
             toast.classList.add('fade-out');
             setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    /* ============================================================
+       全量干员档案合并（extraCharacters.js 数据 → ARKNIGHTS_CHARACTERS）
+       ============================================================ */
+    function mergeExtraCharacters() {
+        if (!window.EXTRA_CHARACTERS || window.__EXTRA_MERGED__) return;
+        window.__EXTRA_MERGED__ = true;
+        for (const [id, def] of Object.entries(window.EXTRA_CHARACTERS)) {
+            if (!window.ARKNIGHTS_CHARACTERS[id]) {
+                window.ARKNIGHTS_CHARACTERS[id] = {
+                    name: def.name,
+                    code: def.code || '',
+                    role: def.role || '',
+                    race: def.race || '',
+                    systemPrompt: def.systemPrompt || '',
+                    skills: def.skills || [],
+                    talents: def.talents || [],
+                    image: def.image || '',
+                    _extra: true,
+                };
+            }
+        }
+    }
+
+    /* ============================================================
+       群聊 UI 绑定
+       ============================================================ */
+    function bindGroupChatUI() {
+        // 右侧面板 干员/群聊 标签
+        document.querySelectorAll('#right-panel-tabs .rp-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                GroupChat.showSection(btn.dataset.rp === 'groups' ? 'groups' : 'operators');
+            });
+        });
+
+        // 新建群按钮
+        const btnCreate = document.getElementById('btn-group-create');
+        if (btnCreate) btnCreate.addEventListener('click', () => GroupChat.openCreateDialog());
+
+        // 建群弹窗
+        const overlay = document.getElementById('group-create-overlay');
+        if (overlay) {
+            const close = () => GroupChat.closeCreateDialog();
+            const btnClose = document.getElementById('btn-close-group-create');
+            const btnCancel = document.getElementById('btn-group-create-cancel');
+            const btnConfirm = document.getElementById('btn-group-create-confirm');
+            if (btnClose) btnClose.addEventListener('click', close);
+            if (btnCancel) btnCancel.addEventListener('click', close);
+            if (btnConfirm) btnConfirm.addEventListener('click', () => GroupChat.confirmCreate());
+            const backdrop = overlay.querySelector('.group-create-backdrop');
+            if (backdrop) backdrop.addEventListener('click', close);
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && overlay.classList.contains('active')) close();
+            });
+            // 成员搜索过滤
+            const search = document.getElementById('group-create-search');
+            if (search) {
+                let timer = null;
+                search.addEventListener('input', () => {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => {
+                        const grid = document.getElementById('group-create-members');
+                        if (grid) GroupChat.buildCreateMemberGrid(grid, search.value);
+                    }, 150);
+                });
+            }
+        }
+
+        // 输入区视频生成按钮（单聊：针对最后一条回复）
+        const btnVideoGen = document.getElementById('btn-video-gen');
+        if (btnVideoGen) {
+            btnVideoGen.addEventListener('click', () => {
+                if (typeof SeedanceVideo === 'undefined' || !SeedanceVideo.hasConfig()) {
+                    showToast('请先在设置中配置 Seedance 视频服务', 'error');
+                    if (window.MobileUI && MobileUI.openSettings) MobileUI.openSettings();
+                    return;
+                }
+                ChatManager.requestVideoForLastReply();
+            });
+        }
+    }
+
+    /* ============================================================
+       干员搜索
+       ============================================================ */
+    function bindCharacterSearch() {
+        const input = document.getElementById('char-search-input');
+        if (!input) return;
+        const count = document.getElementById('char-search-count');
+        const cards = document.getElementById('character-cards');
+        if (!cards) return;
+        let timer = null;
+        input.addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                const q = input.value.trim().toLowerCase();
+                let shown = 0, total = 0;
+                cards.querySelectorAll('.character-card').forEach(card => {
+                    total++;
+                    const hit = !q ||
+                        (card.textContent || '').toLowerCase().includes(q) ||
+                        (card.dataset.character || '').toLowerCase().includes(q);
+                    card.classList.toggle('card-hidden', !hit);
+                    if (hit) shown++;
+                });
+                if (count) {
+                    count.textContent = q ? '结果 ' + shown + ' / ' + total : '';
+                    count.hidden = !q;
+                }
+            }, 150);
+        });
+    }
+
+    /* ============================================================
+       我的形象设置
+       ============================================================ */
+    function bindProfileUI() {
+        const fileInput = document.getElementById('profile-avatar-file');
+        const preview = document.getElementById('profile-avatar-img');
+        if (fileInput && preview) {
+            fileInput.addEventListener('change', async () => {
+                if (!fileInput.files || !fileInput.files[0]) return;
+                try {
+                    const blob = await compressImage(fileInput.files[0], 256, 0.85);
+                    const url = URL.createObjectURL(blob);
+                    preview.src = url;
+                    preview.hidden = false;
+                    preview.dataset.pendingUrl = url;
+                } catch (e) {
+                    showToast('头像读取失败: ' + e.message, 'error');
+                }
+                fileInput.value = '';
+            });
+        }
+        const btnSave = document.getElementById('btn-save-profile');
+        if (btnSave) {
+            btnSave.addEventListener('click', async () => {
+                try {
+                    const nickname = val('profile-nickname');
+                    const persona = val('profile-persona');
+                    const relationship = val('profile-relationship');
+                    UserProfile.saveText({ nickname, persona, relationship });
+                    if (preview && preview.dataset.pendingUrl) {
+                        const blob = await (await fetch(preview.dataset.pendingUrl)).blob();
+                        await UserProfile.setAvatar(blob);
+                        delete preview.dataset.pendingUrl;
+                    }
+                    setSettingsStatus('profile-settings-status', '资料已保存', 'success');
+                    if (ChatManager.renderHistory) ChatManager.renderHistory();
+                } catch (e) {
+                    showToast('保存失败: ' + (e && e.message ? e.message : e), 'error');
+                }
+            });
+        }
+        // 恢复表单
+        if (typeof UserProfile !== 'undefined') {
+            const p = UserProfile.getProfile();
+            const nickname = document.getElementById('profile-nickname');
+            const persona = document.getElementById('profile-persona');
+            const relationship = document.getElementById('profile-relationship');
+            if (nickname) nickname.value = p.nickname || '';
+            if (persona) persona.value = p.persona || '';
+            if (relationship) relationship.value = p.relationship || '';
+            if (preview) {
+                const url = UserProfile.getAvatarUrl();
+                if (url) { preview.src = url; preview.hidden = false; }
+                else preview.hidden = true;
+            }
+        }
+    }
+
+    /* ============================================================
+       自定义聊天背景
+       ============================================================ */
+    function bindBackgroundUI() {
+        const enabledBox = document.getElementById('bg-enabled');
+        if (!enabledBox) return;
+        enabledBox.checked = ChatBackground.isEnabled();
+        enabledBox.addEventListener('change', () => {
+            ChatBackground.setEnabled(enabledBox.checked);
+            ChatManager.reloadBackground();
+        });
+
+        const fileInput = document.getElementById('bg-file-input');
+        if (fileInput) {
+            fileInput.addEventListener('change', async () => {
+                try {
+                    const files = Array.from(fileInput.files || []);
+                    const compressed = [];
+                    for (const f of files) {
+                        try { compressed.push(await compressImage(f, 1280, 0.8)); }
+                        catch (e) { console.warn('背景压缩失败:', f.name, e); }
+                    }
+                    if (compressed.length === 0) throw new Error('没有可用的图片');
+                    await ChatBackground.addFiles(compressed);
+                    renderBgList();
+                    ChatManager.reloadBackground();
+                    setSettingsStatus('bg-settings-status', '已添加 ' + compressed.length + ' 张背景图', 'success');
+                } catch (e) {
+                    setSettingsStatus('bg-settings-status', (e && e.message) || '添加失败', 'error');
+                }
+                fileInput.value = '';
+            });
+        }
+        renderBgList();
+    }
+
+    function renderBgList() {
+        const listEl = document.getElementById('bg-list');
+        if (!listEl) return;
+        const cfg = ChatBackground.getConfig();
+        listEl.innerHTML = '';
+        if (!cfg.paths || cfg.paths.length === 0) {
+            listEl.innerHTML = '<div class="bg-empty">尚未添加自定义背景 — 使用内置轮播</div>';
+            return;
+        }
+        cfg.paths.forEach((key, i) => {
+            const url = cfg.urls[i];
+            const item = document.createElement('div');
+            item.className = 'bg-item';
+            if (url) item.innerHTML = '<img src="' + url + '" alt="背景 ' + (i + 1) + '" loading="lazy">';
+            const del = document.createElement('button');
+            del.className = 'bg-del-btn';
+            del.textContent = '✕';
+            del.title = '删除';
+            del.addEventListener('click', async () => {
+                await ChatBackground.remove(key);
+                renderBgList();
+                ChatManager.reloadBackground();
+            });
+            item.appendChild(del);
+            listEl.appendChild(item);
+        });
+    }
+
+    /* ============================================================
+       Seedance 视频生成设置
+       ============================================================ */
+    function bindSeedanceUI() {
+        const addr = document.getElementById('sd-address');
+        if (!addr || typeof SeedanceVideo === 'undefined') return;
+
+        // 恢复表单
+        const cfg = SeedanceVideo.getConfig();
+        addr.value = cfg.baseUrl || '';
+        const keyInput = document.getElementById('sd-key');
+        if (keyInput) keyInput.value = cfg.apiKey || '';
+        const relay = document.getElementById('sd-relay-model');
+        if (relay) relay.value = cfg.relayModelId || '';
+        const variant = document.getElementById('sd-variant');
+        if (variant) variant.value = cfg.variant || 'STANDARD';
+        const resolution = document.getElementById('sd-resolution');
+        if (resolution) resolution.value = cfg.resolution || 'P720';
+        const ratio = document.getElementById('sd-ratio');
+        if (ratio) ratio.value = cfg.ratio || '9:16';
+        const duration = document.getElementById('sd-duration');
+        if (duration) duration.value = cfg.durationSeconds || 5;
+        const watermark = document.getElementById('sd-watermark');
+        if (watermark) watermark.checked = !!cfg.watermark;
+        const scene = document.getElementById('sd-scene');
+        if (scene) scene.value = cfg.sceneDescription || '';
+        const auto = document.getElementById('sd-auto');
+        if (auto) auto.checked = !!cfg.autoEnabled;
+        const bgPreview = document.getElementById('sd-bg-preview');
+        const bgUrl = SeedanceVideo.getBackgroundUrl();
+        if (bgUrl && bgPreview) { bgPreview.src = bgUrl; bgPreview.hidden = false; }
+
+        // 密码显示切换
+        const btnPw = document.getElementById('btn-toggle-sd-pw');
+        if (btnPw) {
+            btnPw.addEventListener('click', () => {
+                if (keyInput) keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+            });
+        }
+
+        // 背景图上传
+        const bgFile = document.getElementById('sd-bg-file');
+        if (bgFile) {
+            bgFile.addEventListener('change', async () => {
+                const file = bgFile.files && bgFile.files[0];
+                if (!file) return;
+                try {
+                    const blob = await compressImage(file, 1280, 0.85);
+                    await SeedanceVideo.setBackgroundBlob(blob);
+                    if (bgPreview) { bgPreview.src = SeedanceVideo.getBackgroundUrl(); bgPreview.hidden = false; }
+                    setSettingsStatus('sd-settings-status', '背景图已保存', 'success');
+                } catch (e) {
+                    setSettingsStatus('sd-settings-status', (e && e.message) || '背景图保存失败', 'error');
+                }
+                bgFile.value = '';
+            });
+        }
+
+        // 保存配置
+        const btnSave = document.getElementById('btn-save-seedance');
+        if (btnSave) {
+            btnSave.addEventListener('click', () => {
+                const dur = parseInt(document.getElementById('sd-duration').value, 10);
+                SeedanceVideo.saveConfig({
+                    baseUrl: addr.value.trim(),
+                    apiKey: keyInput ? keyInput.value.trim() : '',
+                    relayModelId: (relay ? relay.value.trim() : '') || 'kwvideo-v2-ref',
+                    variant: variant ? variant.value : 'STANDARD',
+                    resolution: resolution ? resolution.value : 'P720',
+                    ratio: ratio ? ratio.value : '9:16',
+                    durationSeconds: Math.min(15, Math.max(4, dur || 5)),
+                    watermark: watermark ? watermark.checked : false,
+                    sceneDescription: scene ? scene.value.trim() : '',
+                    autoEnabled: auto ? auto.checked : false,
+                });
+                setSettingsStatus('sd-settings-status', 'Seedance 配置已保存', 'success');
+            });
+        }
+
+        // 测试连接
+        const btnTest = document.getElementById('btn-sd-test');
+        if (btnTest) {
+            btnTest.addEventListener('click', async () => {
+                const baseUrl = addr.value.trim();
+                const apiKey = keyInput ? keyInput.value.trim() : '';
+                if (!baseUrl || !apiKey) {
+                    setSettingsStatus('sd-settings-status', '请先填写服务地址与 API Key', 'error');
+                    return;
+                }
+                setSettingsStatus('sd-settings-status', '测试中...', '');
+                try {
+                    const ok = await SeedanceVideo.testConnection(baseUrl, apiKey);
+                    setSettingsStatus('sd-settings-status', ok ? '连接成功 ✓' : '连接异常：请检查地址与密钥', ok ? 'success' : 'error');
+                } catch (e) {
+                    setSettingsStatus('sd-settings-status', '连接失败: ' + (e && e.message ? e.message : e), 'error');
+                }
+            });
+        }
+    }
+
+    /* ============================================================
+       性能设置（移动端 Live2D / 背景降噪）
+       ============================================================ */
+    function bindPerfUI() {
+        const l2d = document.getElementById('l2d-mobile');
+        if (l2d) {
+            const val = localStorage.getItem('arknights_chat_l2d_mobile');
+            l2d.checked = val === 'true';
+            l2d.addEventListener('change', () => {
+                localStorage.setItem('arknights_chat_l2d_mobile', l2d.checked ? 'true' : 'false');
+                showToast(l2d.checked ? 'Live2D 将在下次打开时启用' : 'Live2D 已关闭（使用静态立绘）', 'success');
+            });
+        }
+        const dim = document.getElementById('bg-dim-mobile');
+        if (dim) {
+            const val = localStorage.getItem('arknights_chat_bg_dim');
+            dim.checked = val !== 'false';
+            dim.addEventListener('change', () => {
+                localStorage.setItem('arknights_chat_bg_dim', dim.checked ? 'true' : 'false');
+                applyBgDim();
+            });
+        }
+    }
+
+    function applyBgDim() {
+        const mobile = window.matchMedia('(max-width: 768px)').matches;
+        if (!mobile) return;
+        const dim = document.getElementById('bg-dim-mobile');
+        const on = dim ? dim.checked : true;
+        document.documentElement.style.setProperty('--chat-bg-opacity', on ? '0.25' : '0.35');
+    }
+
+    /* ============================================================
+       通用工具
+       ============================================================ */
+    /** 图片压缩（file → blob） */
+    function compressImage(file, maxSide, quality) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+                try {
+                    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+                    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    canvas.toBlob(b => {
+                        URL.revokeObjectURL(url);
+                        if (b) resolve(b);
+                        else reject(new Error('压缩失败'));
+                    }, 'image/jpeg', quality || 0.85);
+                } catch (e) {
+                    URL.revokeObjectURL(url);
+                    reject(e);
+                }
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error('图片读取失败'));
+            };
+            img.src = url;
+        });
+    }
+
+    function setSettingsStatus(id, text, type) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'settings-status ' + (type || '');
+        setTimeout(() => {
+            if (el.textContent === text) {
+                el.textContent = '';
+                el.className = 'settings-status';
+            }
         }, 3000);
     }
 

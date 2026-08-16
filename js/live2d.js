@@ -161,6 +161,19 @@ const Live2DManager = (() => {
             return;
         }
 
+        // 移动端默认关闭 Live2D（省 GPU/电量），可在设置「性能」中开启
+        try {
+            const isMobile = window.matchMedia('(max-width: 768px)').matches;
+            const l2dEnabled = localStorage.getItem('arknights_chat_l2d_mobile') === 'true';
+            if (isMobile && !l2dEnabled) {
+                console.warn('Live2D: mobile disabled by default, using static fallback');
+                showFallback('amiya');
+                return;
+            }
+        } catch (e) {
+            console.warn('Live2D: mobile toggle check failed', e);
+        }
+
         // Check PIXI availability
         if (typeof PIXI === 'undefined') {
             console.warn('Live2D: PIXI not loaded, using fallback');
@@ -195,7 +208,7 @@ const Live2DManager = (() => {
                 height: h,
                 backgroundAlpha: 0,
                 antialias: true,
-                resolution: window.devicePixelRatio || 1,
+                resolution: Math.min(window.devicePixelRatio || 1, 2),
                 autoDensity: true,
             });
 

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="description" content="罗德岛通讯终端 — Arknights 同人角色扮演聊天，支持多角色 LLM 对话、Live2D 展示与 TTS 语音合成">
     <meta name="theme-color" content="#0a0a0f">
     <meta http-equiv="Cache-Control" content="public, max-age=86400">
@@ -206,6 +206,10 @@
                         <div class="chat-character-role" id="chat-char-role">罗德岛公开领袖</div>
                     </div>
                     <div class="chat-header-right">
+                        <button class="btn-ghost btn-group-back" id="btn-group-back" title="返回单聊" aria-label="返回单聊" hidden>
+                            <svg viewBox="0 0 24 24" width="14" height="14"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" fill="currentColor"/></svg>
+                            返回
+                        </button>
                         <div id="mobile-char-switcher">
                             <select class="mobile-char-select" id="mobile-char-select" aria-label="选择对话角色">
                                 <option value="la-pluma">羽毛笔</option>
@@ -252,12 +256,21 @@
                 </div>
 
                 <div class="chat-typing hidden" id="chat-typing">
+                    <span class="chat-typing-label" id="chat-typing-label"></span>
                     <div class="typing-dot"></div>
                     <div class="typing-dot"></div>
                     <div class="typing-dot"></div>
                 </div>
 
+                <!-- 群聊成员横滑条（群模式下显示） -->
+                <div id="group-member-strip" class="group-member-strip hidden" role="list"></div>
+
                 <div class="chat-input-area">
+                    <!-- @提及选择器（群模式下显示） -->
+                    <div id="at-picker" class="at-picker hidden">
+                        <div class="at-picker-title">提及成员</div>
+                        <div id="at-picker-list"></div>
+                    </div>
                     <!-- Attachment previews -->
                     <div class="attachment-preview" id="attachment-preview" style="display:none;">
                         <div class="image-preview-list" id="image-preview-list"></div>
@@ -266,6 +279,9 @@
                     <div class="chat-input-wrapper">
                         <button class="btn-attach" id="btn-attach" title="添加附件（图片/文件）" type="button">
                             <svg viewBox="0 0 24 24" width="18" height="18"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z" fill="currentColor"/></svg>
+                        </button>
+                        <button class="btn-video-gen" id="btn-video-gen" title="生成视频 (Seedance)" type="button">
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" fill="currentColor"/></svg>
                         </button>
                         <input type="file" id="file-input" accept="image/*,.txt,.md,.csv,.json,.xml,.html,.css,.js,.py,.c,.cpp,.h,.java,.ts,.tsx,.jsx,.yaml,.yml,.toml,.ini,.cfg,.log,.sql,.docx,.xlsx,.xls" multiple style="display:none;">
                         <span class="input-prompt" aria-hidden="true">></span>
@@ -370,6 +386,154 @@
                     <button type="button" id="btn-add-character-voice" class="btn-save" style="margin-bottom:12px; padding:6px 14px; font-size:12px; width:auto;">+ 添加角色音色</button>
                     <button class="btn-save" id="btn-save-tts-settings">保存 TTS 设置</button>
                     <div class="settings-status" id="tts-settings-status"></div>
+
+                    <!-- ═══ 我的形象 ═══ -->
+                    <details class="settings-section" id="settings-profile-section">
+                        <summary><span class="isl-icon">◈</span> 我的形象 (PROFILE)</summary>
+                        <div class="settings-section-body">
+                            <div class="profile-avatar-wrap">
+                                <img id="profile-avatar-img" class="profile-avatar" src="" alt="头像">
+                                <label class="imp-upload-zone" for="profile-avatar-file" style="flex:1;">
+                                    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <span>更换头像</span>
+                                </label>
+                                <input type="file" id="profile-avatar-file" accept="image/*" hidden>
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-nickname">昵称</label>
+                                <input type="text" id="profile-nickname" placeholder="博士" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-persona">人设简介 <span class="label-hint">(注入 AI 对话设定)</span></label>
+                                <textarea id="profile-persona" rows="3" placeholder="对干员们而言，我是……"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-relationship">与干员的关系 <span class="label-hint">(如：博士是罗德岛的行动指挥官)</span></label>
+                                <input type="text" id="profile-relationship" placeholder="博士与干员们的关系……" autocomplete="off">
+                            </div>
+                            <button class="btn-save" id="btn-save-profile">保存资料</button>
+                            <div class="settings-status" id="profile-settings-status"></div>
+                        </div>
+                    </details>
+
+                    <!-- ═══ 聊天背景 ═══ -->
+                    <details class="settings-section" id="settings-bg-section">
+                        <summary><span class="isl-icon">◈</span> 聊天背景 (BACKGROUND)</summary>
+                        <div class="settings-section-body">
+                            <div class="setting-row">
+                                <span class="setting-row-label">启用自定义背景轮播</span>
+                                <label class="switch"><input type="checkbox" id="bg-enabled"><span class="switch-track"></span><span class="switch-thumb"></span></label>
+                            </div>
+                            <label class="imp-upload-zone" for="bg-file-input">
+                                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                <span>上传背景图片（多选，最多 20 张，8 秒轮播）</span>
+                            </label>
+                            <input type="file" id="bg-file-input" accept="image/*" multiple hidden>
+                            <div class="bg-list" id="bg-list"></div>
+                            <div class="settings-status" id="bg-settings-status"></div>
+                        </div>
+                    </details>
+
+                    <!-- ═══ 视频生成 · Seedance ═══ -->
+                    <details class="settings-section" id="settings-seedance-section">
+                        <summary><span class="isl-icon">◈</span> 视频生成 · Seedance (VIDEO)</summary>
+                        <div class="settings-section-body">
+                            <div class="form-group">
+                                <label for="sd-address">服务地址 <span class="label-hint">(方舟 / 中转站)</span></label>
+                                <input type="text" id="sd-address" placeholder="https://ark.cn-beijing.volces.com/api/v3" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="sd-key">API KEY</label>
+                                <div class="password-wrapper">
+                                    <input type="password" id="sd-key" placeholder="sk-..." autocomplete="off">
+                                    <button class="btn-toggle-pw" id="btn-toggle-sd-pw" title="Show/Hide">
+                                        <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="import-row">
+                                <div class="form-group">
+                                    <label for="sd-variant">模型档位</label>
+                                    <select id="sd-variant">
+                                        <option value="STANDARD">标准版 doubao-seedance-2-0</option>
+                                        <option value="FAST">快速版 doubao-seedance-2-0-fast</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="sd-relay-model">中转站模型 <span class="label-hint">(仅中转站)</span></label>
+                                    <input type="text" id="sd-relay-model" placeholder="kwvideo-v2-ref" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="import-row">
+                                <div class="form-group">
+                                    <label for="sd-resolution">分辨率</label>
+                                    <select id="sd-resolution">
+                                        <option value="P480">480p</option>
+                                        <option value="P720" selected>720p</option>
+                                        <option value="P1080">1080p</option>
+                                        <option value="P4K">4K</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="sd-ratio">画幅</label>
+                                    <select id="sd-ratio">
+                                        <option value="9:16" selected>9:16 竖屏</option>
+                                        <option value="16:9">16:9 横屏</option>
+                                        <option value="1:1">1:1 方形</option>
+                                        <option value="3:4">3:4</option>
+                                        <option value="4:3">4:3</option>
+                                        <option value="21:9">21:9 超宽</option>
+                                        <option value="adaptive">自适应</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="sd-duration">时长 (秒)</label>
+                                    <input type="number" id="sd-duration" min="4" max="15" value="5" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="setting-row">
+                                <span class="setting-row-label">视频水印</span>
+                                <label class="switch"><input type="checkbox" id="sd-watermark"><span class="switch-track"></span><span class="switch-thumb"></span></label>
+                            </div>
+                            <div class="form-group">
+                                <label>参考背景图 <span class="label-hint">(可选，随视频生成)</span></label>
+                                <label class="imp-upload-zone" for="sd-bg-file">
+                                    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <span>上传背景图</span>
+                                </label>
+                                <input type="file" id="sd-bg-file" accept="image/*" hidden>
+                                <img id="sd-bg-preview" class="import-preview" alt="背景图预览" hidden>
+                            </div>
+                            <div class="form-group">
+                                <label for="sd-scene">默认场景描述</label>
+                                <textarea id="sd-scene" rows="3" placeholder="如：阿米娅在黄昏的舰桥上望向远方，风吹起她的头发……"></textarea>
+                            </div>
+                            <div class="setting-row">
+                                <span class="setting-row-label">角色回复后自动生成视频 <span class="label-hint">(会产生 API 费用)</span></span>
+                                <label class="switch"><input type="checkbox" id="sd-auto"><span class="switch-track"></span><span class="switch-thumb"></span></label>
+                            </div>
+                            <div class="import-row">
+                                <button class="btn-save" id="btn-sd-test" style="width:auto;font-size:11px;padding:8px 14px;">测试连接</button>
+                                <button class="btn-save" id="btn-save-seedance" style="width:auto;font-size:11px;padding:8px 14px;">保存配置</button>
+                            </div>
+                            <div class="settings-status" id="sd-settings-status"></div>
+                        </div>
+                    </details>
+
+                    <!-- ═══ 性能 ═══ -->
+                    <details class="settings-section" id="settings-perf-section">
+                        <summary><span class="isl-icon">◈</span> 性能 (PERFORMANCE)</summary>
+                        <div class="settings-section-body">
+                            <div class="setting-row">
+                                <span class="setting-row-label">移动端启用 Live2D 模型 <span class="label-hint">(关闭时显示静态立绘，省电)</span></span>
+                                <label class="switch"><input type="checkbox" id="l2d-mobile"><span class="switch-track"></span><span class="switch-thumb"></span></label>
+                            </div>
+                            <div class="setting-row">
+                                <span class="setting-row-label">移动端聊天背景透明度 <span class="label-hint">(低透明度更省电)</span></span>
+                                <label class="switch"><input type="checkbox" id="bg-dim-mobile" checked><span class="switch-track"></span><span class="switch-thumb"></span></label>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
 
@@ -377,6 +541,18 @@
             <button class="settings-toggle-btn" id="btn-toggle-settings" title="Toggle Settings">
                 SYSTEM // CONFIG <span class="toggle-arrow">▼</span>
             </button>
+
+            <!-- Right panel tabs: operators / groups -->
+            <div class="right-panel-tabs" id="right-panel-tabs" role="tablist" aria-label="干员 / 群聊">
+                <button type="button" class="rp-tab active" data-rp="operators" role="tab" aria-selected="true">干员 OPERATORS</button>
+                <button type="button" class="rp-tab" data-rp="groups" role="tab" aria-selected="false">群聊 GROUPS</button>
+            </div>
+
+            <!-- Character Search (desktop + mobile) -->
+            <div class="char-search-bar" id="char-search-bar">
+                <input type="text" id="char-search-input" placeholder="搜索干员（覆盖 400+ 名）..." autocomplete="off" aria-label="搜索干员">
+                <span class="char-search-count" id="char-search-count" hidden></span>
+            </div>
 
             <!-- Character Cards (bottom) -->
             <div class="panel-label-row">
@@ -721,6 +897,15 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ============ GROUP LIST SECTION: 群聊（桌面右栏 / 移动端群聊 tab 共用） ============ -->
+            <div class="panel-label-row" id="group-section-header">
+                <span class="panel-label">SQUAD // CHANNELS</span>
+                <button type="button" id="btn-group-create" class="btn-import-char" title="新建群聊">＋ 新建群</button>
+            </div>
+            <div id="group-list-section" class="right-panel-section">
+                <div id="group-list"></div>
+            </div>
         </div>
     </div>
 
@@ -729,6 +914,10 @@
         <button class="mobile-tab active" data-tab="chat" role="tab" aria-selected="true" aria-controls="middle-panel">
             <svg viewBox="0 0 24 24" width="22" height="22"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z" fill="currentColor"/><path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z" fill="currentColor"/></svg>
             <span>聊天</span>
+        </button>
+        <button class="mobile-tab" data-tab="groups" role="tab" aria-selected="false" aria-controls="group-list-section">
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 10H5V7H3v3H0v2h3v3h2v-3h3v-2zm10 1c1.66 0 2.99-1.34 2.99-3S19.66 5 18 5c-.32 0-.63.05-.91.14.57.81.9 1.79.9 2.86s-.34 2.04-.9 2.86c.28.09.59.14.91.14zm-5 0c1.66 0 2.99-1.34 2.99-3S14.66 5 13 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm6.62 2.16c.83.73 1.38 1.66 1.38 2.84v2h3v-2c0-1.54-2.37-2.49-4.38-2.84zM13 13c-2 0-6 1-6 3v2h12v-2c0-2-4-3-6-3z" fill="currentColor"/></svg>
+            <span>群聊</span>
         </button>
         <button class="mobile-tab" data-tab="characters" role="tab" aria-selected="false" aria-controls="mobile-characters-panel">
             <svg viewBox="0 0 24 24" width="22" height="22"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/></svg>
@@ -742,6 +931,37 @@
 
     <!-- ============ MOBILE SETTINGS DRAWER BACKDROP ============ -->
     <div class="settings-drawer-backdrop" id="settings-drawer-backdrop" aria-hidden="true"></div>
+
+    <!-- 群聊创建弹窗 -->
+    <div id="group-create-overlay">
+        <div class="group-create-backdrop"></div>
+        <div class="group-create-panel">
+            <div class="import-header">
+                <div class="import-header-deco" aria-hidden="true">
+                    <span class="ihd-l"></span><span class="ihd-dot"></span><span class="ihd-r"></span>
+                </div>
+                <div class="import-header-label">SQUAD // NEW CHANNEL</div>
+                <button class="import-close-btn" id="btn-close-group-create" aria-label="关闭">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
+                </button>
+            </div>
+            <div class="group-create-body">
+                <div class="form-group">
+                    <label for="group-create-name">群聊名称 <span class="label-hint">(可留空，默认「群聊」)</span></label>
+                    <input type="text" id="group-create-name" placeholder="博士的作战室..." autocomplete="off">
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label for="group-create-search">选择成员 <span class="label-hint" id="group-create-count">已选 0 / 10</span></label>
+                    <input type="text" id="group-create-search" placeholder="搜索干员（名字 / 代号）..." autocomplete="off">
+                </div>
+                <div id="group-create-members" class="group-create-members"></div>
+            </div>
+            <div class="import-footer">
+                <button type="button" class="btn-save" id="btn-group-create-confirm">创建群聊</button>
+                <button type="button" class="btn-ghost" id="btn-group-create-cancel">取消</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Guide Overlay -->
     <div id="guide-overlay">
@@ -1165,6 +1385,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
     <script src="js/characters.js"></script>
+    <script src="js/extraCharacters.js"></script>
     <script src="js/codeHighlight.js"></script>
     <script src="js/ocr.js"></script>
     <script src="js/storage.js"></script>
@@ -1174,7 +1395,11 @@
     <script src="js/music.js"></script>
     <script src="js/live2d.js"></script>
     <script src="js/tts.js"></script>
+    <script src="js/userProfile.js"></script>
+    <script src="js/chatBackground.js"></script>
     <script src="js/chat.js"></script>
+    <script src="js/groupChat.js"></script>
+    <script src="js/seedance.js"></script>
     <script src="js/main.js"></script>
 
     <!-- Mobile drawer + tab bar controller -->
@@ -1210,7 +1435,11 @@
                 middlePanel.classList.toggle('mobile-panel-hidden', tabName !== 'chat');
             }
             if (rightPanel) {
-                rightPanel.classList.toggle('mobile-panel-visible', tabName === 'characters');
+                rightPanel.classList.toggle('mobile-panel-visible', tabName === 'characters' || tabName === 'groups');
+            }
+            // 群聊 / 角色 tab：联动右栏内部区块
+            if ((tabName === 'characters' || tabName === 'groups') && typeof GroupChat !== 'undefined' && GroupChat.showSection) {
+                GroupChat.showSection(tabName === 'groups' ? 'groups' : 'operators');
             }
 
             // Close settings drawer when switching tabs
@@ -1304,6 +1533,19 @@
                 showTab(activeTab);
             }
         });
+
+        // ---- Visual viewport (mobile keyboard handling) ----
+        var vv = window.visualViewport;
+        function applyVisualViewport() {
+            if (!vv) return;
+            document.documentElement.style.setProperty('--vvh', vv.height + 'px');
+            document.documentElement.style.setProperty('--vv-top', vv.offsetTop + 'px');
+        }
+        if (vv) {
+            vv.addEventListener('resize', applyVisualViewport);
+            vv.addEventListener('scroll', applyVisualViewport);
+            applyVisualViewport();
+        }
 
         // ---- Initialize ----
         if (isMobile) {

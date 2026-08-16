@@ -30,7 +30,12 @@ const ChatManager = (() => {
     let chatBgInterval = null;
 
     // Character definitions loaded from js/characters.js as window.ARKNIGHTS_CHARACTERS
-    const CHARACTERS = window.ARKNIGHTS_CHARACTERS || {};
+    // 实时读取（characters.js 定义 + 全量干员/自定义角色运行时合并）
+    function getChars() { return window.ARKNIGHTS_CHARACTERS || {}; }
+
+    // 聊天模式：'single' 单聊 | 'group' 群聊
+    let chatMode = 'single';
+    let currentGroupId = null;
 
     /* ============================================================
        Combined message rendering: Code blocks + KaTeX math
@@ -299,7 +304,8 @@ const ChatManager = (() => {
             .trim();
     }
 
-    function createTtsPlayButton(text) {
+    function createTtsPlayButton(text, characterId) {
+        const ttsCharId = characterId || currentCharacterId;
         const btn = document.createElement('button');
         btn.className = 'btn-tts-play';
         btn.title = '播放语音';
@@ -381,7 +387,7 @@ const ChatManager = (() => {
                 }
 
                 showProgress('再生中...');
-                await TTSManager.speak(speakText, currentCharacterId);
+                await TTSManager.speak(speakText, ttsCharId);
                 hideProgress();
                 btn.classList.remove('loading');
                 btn.classList.add('playing');
@@ -519,7 +525,7 @@ const ChatManager = (() => {
 
         // Load saved character (validate it exists)
         const saved = Storage.getActiveCharacter();
-        currentCharacterId = CHARACTERS[saved] ? saved : 'amiya';
+        currentCharacterId = getChars()[saved] ? saved : 'amiya';
 
         // Load history
         messageHistory = Storage.getHistory(currentCharacterId);
@@ -528,7 +534,30 @@ const ChatManager = (() => {
         sendBtn.addEventListener('click', sendMessage);
         inputEl.addEventListener('keydown', onInputKeydown);
         inputEl.addEventListener('input', onInputDebounced);
+        inputEl.addEventListener('input', onInputGroup);
         clearBtn.addEventListener('click', clearChat);
+
+        // 群聊：返回单聊按钮
+        const btnGroupBack = document.getElementById('btn-group-back');
+        if (btnGroupBack) btnGroupBack.addEventListener('click', exitGroup);
+
+        // 点击输入区外关闭 @ 选择器
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.at-picker') && !e.target.closest('#chat-input') && !e.target.closest('.member-chip')) {
+                GroupChat.closeAtPicker();
+            }
+        });
+
+        // 视频任务状态变化 → 原地刷新消息内卡片
+        if (typeof SeedanceVideo !== 'undefined' && SeedanceVideo.onChange) {
+            SeedanceVideo.onChange(function (taskId) {
+                const card = messagesContainer.querySelector('.seedance-card[data-task-id="' + taskId + '"]');
+                if (card) {
+                    const msgEl = card.closest('.message');
+                    if (msgEl) SeedanceVideo.renderCard(msgEl, taskId);
+                }
+            });
+        }
 
         // File upload events
         const btnAttach = document.getElementById('btn-attach');
@@ -566,13 +595,107 @@ const ChatManager = (() => {
     }
 
     function updateCharacterDisplay() {
-        const char = CHARACTERS[currentCharacterId];
+        const char = getChars()[currentCharacterId];
         if (!char) {
             console.warn('Character not found:', currentCharacterId);
             return;
         }
         if (charNameEl) charNameEl.textContent = char.name;
         if (charRoleEl) charRoleEl.textContent = char.role.toUpperCase();
+    }
+
+    /* ============================================================
+       群聊模式 UI（进入/退出/成员条/头部显示）
+       ============================================================ */
+    function updateGroupDisplay() {
+        const isGroup = chatMode === 'group';
+        const backBtn = document.getElementById('btn-group-back');
+        const strip = document.getElementById('group-member-strip');
+        const container = document.getElementById('chat-container');
+        if (backBtn) backBtn.hidden = !isGroup;
+        if (strip) strip.classList.toggle('hidden', !isGroup);
+        if (container) container.classList.toggle('group-mode', isGroup);
+        if (isGroup) {
+            const group = GroupChat.getGroup(currentGroupId);
+            if (charNameEl) charNameEl.textContent = group ? group.name : '群聊';
+            if (charRoleEl) charRoleEl.textContent = (group ? group.memberIds.length : 0) + ' 位成员';
+        } else {
+            updateCharacterDisplay();
+        }
+    }
+
+    function renderMemberStrip() {
+        const strip = document.getElementById('group-member-strip');
+        if (!strip) return;
+        strip.innerHTML = '';
+        const members = GroupChat.getMembers(currentGroupId);
+        members.forEach(m => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'member-chip';
+            chip.title = '提及 ' + m.name;
+            const img = m.image;
+            chip.innerHTML =
+                '<span class="member-chip-avatar"' + (img ? ' style="background-image:url(\'' + img + '\')"' : '') + '>' +
+                (img ? '' : escapeHtml(m.name.slice(0, 1))) + '</span>' +
+                '<span class="member-chip-name">' + escapeHtml(m.name) + '</span>';
+            chip.addEventListener('click', () => {
+                insertMention(m.name);
+            });
+            strip.appendChild(chip);
+        });
+    }
+
+    function insertMention(name) {
+        const text = inputEl.value;
+        const lastAt = text.lastIndexOf('@');
+        const before = lastAt >= 0 ? text.slice(0, lastAt) : text;
+        inputEl.value = before + '@' + name + ' ';
+        inputEl.focus();
+        GroupChat.closeAtPicker();
+        autoResizeInput();
+    }
+
+    /** 进入群聊 */
+    function enterGroup(groupId) {
+        const group = GroupChat.getGroup(groupId);
+        if (!group) return;
+        // 保存当前单聊历史
+        Storage.setHistory(currentCharacterId, messageHistory);
+        chatMode = 'group';
+        currentGroupId = groupId;
+        GroupChat.currentGroupId = groupId;
+        GroupChat.touchGroup(groupId);
+        // 加载群历史
+        messageHistory = GroupChat.getHistory(groupId);
+        // UI
+        updateGroupDisplay();
+        renderHistory();
+        renderMemberStrip();
+    }
+
+    /** 退出群聊，回到单聊 */
+    function exitGroup() {
+        if (chatMode !== 'group') return;
+        GroupChat.setHistory(currentGroupId, messageHistory);
+        chatMode = 'single';
+        currentGroupId = null;
+        GroupChat.currentGroupId = null;
+        messageHistory = Storage.getHistory(currentCharacterId);
+        updateGroupDisplay();
+        renderHistory();
+        GroupChat.closeAtPicker();
+    }
+
+    /** 当前群模式状态：返回群 id 或 null */
+    function getGroupMode() {
+        return chatMode === 'group' ? currentGroupId : null;
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[c]));
     }
 
     function initChatBackground() {
@@ -588,28 +711,40 @@ const ChatManager = (() => {
         chatBgLayers = Array.from(container.querySelectorAll('.chat-bg-layer'));
         if (chatBgLayers.length < 2) return;
 
-        // Preload images lazily
-        CHAT_BG_IMAGES.forEach(src => {
+        // 生效图片列表：用户自定义背景优先，否则内置轮播
+        let imgs = null;
+        if (typeof ChatBackground !== 'undefined' && ChatBackground.getEffectiveUrls) {
+            imgs = ChatBackground.getEffectiveUrls();
+        }
+        if (!imgs || imgs.length === 0) imgs = CHAT_BG_IMAGES;
+
+        // Preload first two images lazily
+        imgs.slice(0, 2).forEach(src => {
             const img = new Image();
             img.src = src;
         });
 
         chatBgImageIndex = 0;
         chatBgActiveLayer = 0;
-        chatBgLayers[chatBgActiveLayer].style.backgroundImage = `url('${CHAT_BG_IMAGES[chatBgImageIndex]}')`;
+        chatBgLayers[chatBgActiveLayer].style.backgroundImage = `url('${imgs[chatBgImageIndex]}')`;
         chatBgLayers[chatBgActiveLayer].classList.add('active');
 
         // Cycle every 8 seconds
         chatBgInterval = setInterval(() => {
-            chatBgImageIndex = (chatBgImageIndex + 1) % CHAT_BG_IMAGES.length;
+            chatBgImageIndex = (chatBgImageIndex + 1) % imgs.length;
             const nextLayer = 1 - chatBgActiveLayer;
 
-            chatBgLayers[nextLayer].style.backgroundImage = `url('${CHAT_BG_IMAGES[chatBgImageIndex]}')`;
+            chatBgLayers[nextLayer].style.backgroundImage = `url('${imgs[chatBgImageIndex]}')`;
             chatBgLayers[chatBgActiveLayer].classList.remove('active');
             chatBgLayers[nextLayer].classList.add('active');
 
             chatBgActiveLayer = nextLayer;
         }, 8000);
+    }
+
+    /** 背景设置变更后重载轮播 */
+    function reloadBackground() {
+        initChatBackground();
     }
 
     function renderHistory() {
@@ -626,24 +761,56 @@ const ChatManager = (() => {
         if (welcome) welcome.style.display = 'none';
 
         // Render messages
+        const isGroup = chatMode === 'group';
         messageHistory.forEach(msg => {
-            appendMessageBubble(msg.role, msg.content);
+            if (isGroup) {
+                appendMessageBubble(msg.role, msg.content, {
+                    isGroup: true,
+                    speakerId: msg.characterId || null,
+                    msgId: msg.id || null,
+                });
+            } else {
+                appendMessageBubble(msg.role, msg.content, { msgId: msg.id || null });
+            }
         });
 
         scrollToBottom();
     }
 
-    function appendMessageBubble(role, content) {
+    function appendMessageBubble(role, content, opts) {
+        opts = opts || {};
         // Hide welcome
         const welcome = messagesContainer.querySelector('.chat-welcome');
         if (welcome) welcome.style.display = 'none';
 
         const div = document.createElement('div');
         div.className = `message ${role === 'user' ? 'user' : 'character'}`;
+        if (opts.isGroup) div.classList.add('group');
+        if (opts.msgId) div.dataset.msgId = opts.msgId;
 
         const sender = document.createElement('div');
         sender.className = 'message-sender';
-        sender.textContent = role === 'user' ? 'DOCTOR // YOU' : `OPERATOR // ${CHARACTERS[currentCharacterId].name.toUpperCase()}`;
+        let senderText;
+        if (opts.senderLabel) {
+            senderText = opts.senderLabel;
+        } else if (opts.isGroup) {
+            const spName = opts.speakerId ? getChars()[opts.speakerId]?.name || GroupChat.getCharName(opts.speakerId) : '群聊成员';
+            senderText = role === 'user'
+                ? 'DOCTOR // ' + (typeof UserProfile !== 'undefined' ? UserProfile.getNickname().toUpperCase() : '博士')
+                : 'OPERATOR // ' + spName.toUpperCase();
+        } else {
+            const c = getChars()[currentCharacterId];
+            senderText = role === 'user' ? 'DOCTOR // YOU' : 'OPERATOR // ' + ((c && c.name) || '').toUpperCase();
+        }
+        sender.textContent = senderText;
+
+        // 群聊成员消息：发送人前挂头像
+        if (opts.isGroup && role !== 'user' && opts.speakerId) {
+            const imgUrl = GroupChat.resolvePortrait(opts.speakerId);
+            if (imgUrl) {
+                sender.innerHTML = '<span class="msg-sender-avatar" style="background-image:url(\'' + imgUrl + '\')"></span>' + escapeHtml(senderText);
+            }
+        }
 
         const bubbleRow = document.createElement('div');
         bubbleRow.className = 'message-bubble-row';
@@ -654,10 +821,25 @@ const ChatManager = (() => {
 
         bubbleRow.appendChild(bubble);
 
-        // Add TTS play button only for characters with TTS voice support
-        if (role !== 'user' && TTSManager.hasCharacterVoice(currentCharacterId)) {
-            const playBtn = createTtsPlayButton(content);
+        // Add TTS play button for characters with TTS voice support
+        const ttsCharId = opts.isGroup ? opts.speakerId : currentCharacterId;
+        if (role !== 'user' && ttsCharId && TTSManager.hasCharacterVoice(ttsCharId)) {
+            const playBtn = createTtsPlayButton(content, ttsCharId);
             bubbleRow.appendChild(playBtn);
+        }
+
+        // 单聊助手消息：手动生成视频按钮（群聊不触发视频）
+        if (!opts.isGroup && role !== 'user' &&
+            typeof SeedanceVideo !== 'undefined' && SeedanceVideo.hasConfig && SeedanceVideo.hasConfig()) {
+            const videoBtn = document.createElement('button');
+            videoBtn.className = 'btn-msg-video';
+            videoBtn.title = '生成视频 (Seedance)';
+            videoBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" fill="currentColor"/></svg>';
+            videoBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleManualVideo(currentCharacterId, content, opts.msgId);
+            });
+            bubbleRow.appendChild(videoBtn);
         }
 
         const time = document.createElement('div');
@@ -669,7 +851,76 @@ const ChatManager = (() => {
         div.appendChild(time);
         messagesContainer.appendChild(div);
 
+        // 历史渲染时恢复视频卡片
+        if (!opts.isGroup && opts.msgId && typeof SeedanceVideo !== 'undefined') {
+            attachVideoCardIfAny(div, opts.msgId);
+        }
+
         scrollToBottom();
+        return div;
+    }
+
+    /* ============================================================
+       视频生成钩子（单聊）
+       ============================================================ */
+    /** 渲染某条消息已关联的视频任务卡片 */
+    function attachVideoCardIfAny(msgEl, msgId) {
+        if (!msgId || typeof SeedanceVideo === 'undefined') return;
+        const task = SeedanceVideo.findTaskByMessage(msgId);
+        if (task) SeedanceVideo.renderCard(msgEl, task.id);
+    }
+
+    /** 查找某条助手消息对应的用户发言文本 */
+    function findUserTextFor(assistantMsgId) {
+        if (!assistantMsgId) return '';
+        const idx = messageHistory.findIndex(m => m.id === assistantMsgId);
+        if (idx < 0) {
+            for (let i = messageHistory.length - 1; i >= 0; i--) {
+                if (messageHistory[i].role === 'user') return messageHistory[i].content || '';
+            }
+            return '';
+        }
+        for (let i = idx - 1; i >= 0; i--) {
+            if (messageHistory[i].role === 'user') return messageHistory[i].content || '';
+        }
+        return '';
+    }
+
+    /** 手动触发视频生成 */
+    async function handleManualVideo(charId, assistantText, msgId) {
+        if (typeof SeedanceVideo === 'undefined') return;
+        if (!SeedanceVideo.hasConfig()) {
+            App.showToast('请先在设置中配置 Seedance 视频服务', 'error');
+            return;
+        }
+        const userText = findUserTextFor(msgId);
+        const context = messageHistory.slice(-8).map(m => ({ role: m.role, content: m.content }));
+        try {
+            const task = await SeedanceVideo.triggerManual(charId, userText, assistantText, msgId, 'single:' + charId, context);
+            const msgEl = msgId ? messagesContainer.querySelector('.message[data-msg-id="' + msgId + '"]') : null;
+            if (msgEl) SeedanceVideo.renderCard(msgEl, task.id);
+            App.showToast('🎬 视频生成任务已创建', 'success');
+        } catch (e) {
+            App.showToast('视频生成失败: ' + (e && e.message ? e.message : e), 'error');
+        }
+    }
+
+    /** 自动视频：回复完成后按开关触发 */
+    function maybeAutoVideo(charId, userText, assistantText, assistantMsgId, msgEl, context) {
+        try {
+            if (chatMode === 'group') return;
+            if (typeof SeedanceVideo === 'undefined' || !SeedanceVideo.hasConfig) return;
+            const cfg = SeedanceVideo.getConfig();
+            if (!cfg.autoEnabled) return;
+            if (!SeedanceVideo.hasConfig()) return;
+            SeedanceVideo.triggerAuto(charId, userText, assistantText, assistantMsgId, 'single:' + charId, context)
+                .then(task => {
+                    if (task && msgEl) SeedanceVideo.renderCard(msgEl, task.id);
+                })
+                .catch(err => console.warn('[Video] 自动视频触发失败', err));
+        } catch (e) {
+            console.warn('[Video] 自动视频异常', e);
+        }
     }
 
     function scrollToBottom() {
@@ -678,12 +929,16 @@ const ChatManager = (() => {
         });
     }
 
-    function showTyping() {
+    function showTyping(label) {
+        const labelEl = document.getElementById('chat-typing-label');
+        if (labelEl) labelEl.textContent = label || '';
         typingEl.classList.remove('hidden');
         scrollToBottom();
     }
 
     function hideTyping() {
+        const labelEl = document.getElementById('chat-typing-label');
+        if (labelEl) labelEl.textContent = '';
         typingEl.classList.add('hidden');
     }
 
@@ -702,6 +957,11 @@ const ChatManager = (() => {
 
     async function sendMessage() {
         if (isStreaming) return;
+
+        // 群聊模式走群聊发送链路
+        if (chatMode === 'group') {
+            return sendGroupMessage();
+        }
 
         var text = inputEl.value.trim();
         var imageFiles = uploadedImages.slice();
@@ -744,11 +1004,11 @@ const ChatManager = (() => {
         }
 
         // Add user message to history
-        var userMsg = { role: 'user', content: displayText };
+        var userMsg = { id: 'm_' + Date.now() + '_' + Math.floor(Math.random() * 1000), role: 'user', content: displayText };
         if (displayImages.length > 0) userMsg.images = displayImages;
         if (displayFiles.length > 0) userMsg.files = displayFiles.map(function (f) { return f.name; });
         messageHistory.push(userMsg);
-        appendMessageBubbleWithAttachments('user', displayText, displayImages, displayFiles);
+        appendMessageBubbleWithAttachments('user', displayText, displayImages, displayFiles, { msgId: userMsg.id });
         Storage.setHistory(currentCharacterId, messageHistory);
 
         // Show typing
@@ -756,7 +1016,7 @@ const ChatManager = (() => {
         setStreamingState(true);
 
         // Build messages for API - use processed content for the last user message
-        var char = CHARACTERS[currentCharacterId];
+        var char = getChars()[currentCharacterId];
         var historyMsgs = messageHistory.slice(-20).map(function (msg) {
             return { role: msg.role, content: msg.content };
         });
@@ -764,15 +1024,20 @@ const ChatManager = (() => {
         if (historyMsgs.length > 0 && historyMsgs[historyMsgs.length - 1].role === 'user') {
             historyMsgs[historyMsgs.length - 1].content = processedContent;
         }
+        var userDirective = (typeof UserProfile !== 'undefined' && UserProfile.getDirectiveText) ? UserProfile.getDirectiveText() : '';
         var apiMessages = [
-            { role: 'system', content: char.systemPrompt },
+            { role: 'system', content: (char ? char.systemPrompt : '') + userDirective },
         ].concat(historyMsgs);
 
         try {
             var response = await callLLM(config, apiMessages);
-            messageHistory.push({ role: 'assistant', content: response });
-            appendMessageBubble('character', response);
+            var assistantId = 'm_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            messageHistory.push({ id: assistantId, role: 'assistant', content: response });
+            var msgEl = appendMessageBubble('character', response, { msgId: assistantId });
             Storage.setHistory(currentCharacterId, messageHistory);
+            // 自动视频生成（按设置开关）
+            maybeAutoVideo(currentCharacterId, displayText, response, assistantId, msgEl,
+                messageHistory.slice(-10).filter(m => m.id !== assistantId && m.id !== userMsg.id).map(m => ({ role: m.role, content: m.content })));
         } catch (e) {
             App.showToast('API Error: ' + e.message, 'error');
             messageHistory.pop();
@@ -783,17 +1048,162 @@ const ChatManager = (() => {
         setStreamingState(false);
     }
 
+    /* ============================================================
+       群聊发送：多位成员串行流式回复（移植安卓 GroupChatViewModel.sendMessage）
+       ============================================================ */
+    async function sendGroupMessage() {
+        if (isStreaming) return;
+        const group = GroupChat.getGroup(currentGroupId);
+        if (!group) return;
+
+        const text = inputEl.value.trim();
+        const imageFiles = uploadedImages.slice();
+        const docFiles = uploadedFiles.slice();
+
+        if (!text && imageFiles.length === 0 && docFiles.length === 0) return;
+
+        const config = Storage.getApiConfig();
+        if (!config.apiKey) {
+            App.showToast('Please configure API Key in settings first', 'error');
+            return;
+        }
+
+        const members = GroupChat.getMembers(currentGroupId);
+        if (members.length < GroupChat.MIN_MEMBERS) {
+            App.showToast('群成员不足，无法发起群聊', 'error');
+            return;
+        }
+
+        // 清空输入与附件
+        inputEl.value = '';
+        autoResizeInput();
+        const displayImages = uploadedImages.slice();
+        const displayFiles = uploadedFiles.slice();
+        clearAttachments();
+        GroupChat.closeAtPicker();
+
+        // 附件处理（复用单聊链路）
+        let displayText = text;
+        let processedContent;
+        try {
+            const result = await MediaHandler.processMedia(text, imageFiles, docFiles, config);
+            processedContent = result.content;
+            if (!displayText) {
+                if (imageFiles.length > 0 && docFiles.length === 0) displayText = '[图片]';
+                else if (docFiles.length > 0 && imageFiles.length === 0) displayText = '[文件]';
+                else if (imageFiles.length > 0 && docFiles.length > 0) displayText = '[图片+文件]';
+            }
+        } catch (err) {
+            App.showToast('附件处理失败: ' + err.message, 'error');
+            return;
+        }
+
+        // 用户消息入库 + 渲染
+        const userMsg = {
+            id: 'm_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+            role: 'user',
+            content: displayText,
+            characterId: null,
+            ts: Date.now(),
+        };
+        if (displayImages.length > 0) userMsg.images = displayImages;
+        if (displayFiles.length > 0) userMsg.files = displayFiles.map(f => f.name);
+        let history = GroupChat.getHistory(currentGroupId);
+        history.push(userMsg);
+        GroupChat.setHistory(currentGroupId, history);
+        GroupChat.touchGroup(currentGroupId);
+        appendMessageBubbleWithAttachments('user', displayText, displayImages, displayFiles, { isGroup: true, msgId: userMsg.id });
+
+        // @ 解析 + 发言人挑选
+        const names = members.map(m => m.name);
+        const mentionedNames = GroupChat.extractMentions(text, names);
+        const mentionedIds = mentionedNames
+            .map(n => members.find(m => m.name === n))
+            .filter(Boolean)
+            .map(m => m.id);
+        const count = GroupChat.randomReplyCount(members.length, mentionedIds.length);
+        const speakerIds = GroupChat.pickRandom(group.memberIds, mentionedIds, count);
+        const userDirective = (typeof UserProfile !== 'undefined' && UserProfile.getDirectiveText) ? UserProfile.getDirectiveText() : '';
+
+        showTyping('等待回应...');
+        setStreamingState(true);
+
+        let repliesOk = 0;
+        for (const sid of speakerIds) {
+            const speaker = members.find(m => m.id === sid);
+            if (!speaker) continue;
+            const targeted = mentionedIds.includes(sid);
+
+            showTyping(speaker.name + ' 正在输入...');
+            const bubble = createStreamingBubble('', sid);
+            try {
+                const apiMessages = GroupChat.buildApiMessages(members, speaker, history, {
+                    targeted: targeted,
+                    userDirective: userDirective,
+                });
+                const response = await callLLM(config, apiMessages, bubble);
+                const clean = GroupChat.stripSpeakerPrefix(response, names);
+                // 流式气泡定稿
+                const sender = bubble.closest('.message').querySelector('.message-sender');
+                if (sender && !sender.dataset.finalized) {
+                    const imgUrl = GroupChat.resolvePortrait(sid);
+                    sender.innerHTML = '<span class="msg-sender-avatar" style="background-image:url(\'' + imgUrl + '\')"></span>OPERATOR // ' + escapeHtml(speaker.name.toUpperCase());
+                    sender.dataset.finalized = '1';
+                }
+                bubble.innerHTML = renderMessage(clean);
+
+                const msg = {
+                    id: 'm_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                    role: 'assistant',
+                    content: clean,
+                    characterId: sid,
+                    ts: Date.now(),
+                };
+                history.push(msg);
+                GroupChat.setHistory(currentGroupId, history);
+                repliesOk++;
+            } catch (e) {
+                // 移除未完成的流式气泡
+                const msgDiv = bubble.closest('.message');
+                if (msgDiv) msgDiv.remove();
+                if (repliesOk === 0) {
+                    // 全部失败：回滚用户消息 + 恢复输入
+                    history.pop();
+                    GroupChat.setHistory(currentGroupId, history);
+                    inputEl.value = text;
+                    autoResizeInput();
+                    App.showToast('群聊失败: ' + e.message, 'error');
+                } else {
+                    App.showToast('部分成员回复失败: ' + e.message, 'error');
+                }
+                break;
+            }
+        }
+
+        hideTyping();
+        setStreamingState(false);
+        GroupChat.renderGroupList();
+    }
+
     // Render user message with attachment previews
-    function appendMessageBubbleWithAttachments(role, content, images, files) {
+    function appendMessageBubbleWithAttachments(role, content, images, files, opts) {
+        opts = opts || {};
         var welcome = messagesContainer.querySelector('.chat-welcome');
         if (welcome) welcome.style.display = 'none';
 
         var div = document.createElement('div');
         div.className = 'message ' + (role === 'user' ? 'user' : 'character');
+        if (opts.isGroup) div.classList.add('group');
+        if (opts.msgId) div.dataset.msgId = opts.msgId;
 
         var sender = document.createElement('div');
         sender.className = 'message-sender';
-        sender.textContent = role === 'user' ? 'DOCTOR // YOU' : 'OPERATOR // ' + CHARACTERS[currentCharacterId].name.toUpperCase();
+        if (opts.isGroup) {
+            var nick = (typeof UserProfile !== 'undefined') ? UserProfile.getNickname() : '博士';
+            sender.textContent = 'DOCTOR // ' + nick.toUpperCase();
+        } else {
+            sender.textContent = role === 'user' ? 'DOCTOR // YOU' : 'OPERATOR // ' + (getChars()[currentCharacterId] ? getChars()[currentCharacterId].name.toUpperCase() : '');
+        }
 
         var bubble = document.createElement('div');
         bubble.className = 'message-bubble';
@@ -845,7 +1255,7 @@ const ChatManager = (() => {
         scrollToBottom();
     }
 
-    async function callLLM(config, messages) {
+    async function callLLM(config, messages, bubble) {
         const url = `${config.baseUrl.replace(/\/$/, '')}/chat/completions`;
 
         const response = await fetch(url, {
@@ -877,7 +1287,10 @@ const ChatManager = (() => {
 
         // Process SSE stream
         let fullContent = '';
-        const bubble = createStreamingBubble();
+        const useProvidedBubble = !!bubble;
+        const streamBubble = useProvidedBubble ? bubble : createStreamingBubble();
+        const isMobileView = window.matchMedia('(max-width: 768px)').matches;
+        let lastStreamRender = 0;
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -903,31 +1316,58 @@ const ChatManager = (() => {
                     const delta = parsed.choices?.[0]?.delta?.content;
                     if (delta) {
                         fullContent += delta;
-                        bubble.innerHTML = renderMessage(fullContent);
-                        scrollToBottom();
+                        // 流式渲染节流：移动端 150ms / 桌面 100ms，且仅在靠近底部时跟随滚动
+                        const now = performance.now();
+                        if (now - lastStreamRender > (isMobileView ? 150 : 100)) {
+                            streamBubble.innerHTML = renderMessage(fullContent);
+                            lastStreamRender = now;
+                            if (nearBottom()) scrollToBottom();
+                        }
                     }
                 } catch {}
             }
         }
 
-        // Remove streaming bubble (it was inside bubbleRow inside .message div)
-        const messageDiv = bubble.closest('.message');
-        if (messageDiv) {
-            messageDiv.remove();
+        // 定稿渲染
+        streamBubble.innerHTML = renderMessage(fullContent);
+        if (nearBottom()) scrollToBottom();
+
+        // 自建气泡时移除（群聊/调用方传入气泡时保留）
+        if (!useProvidedBubble) {
+            const messageDiv = streamBubble.closest('.message');
+            if (messageDiv) {
+                messageDiv.remove();
+            }
         }
         return fullContent || '(empty response)';
     }
 
-    function createStreamingBubble() {
+    /** 是否靠近消息列表底部（用户上翻历史时不强制拉底） */
+    function nearBottom() {
+        return messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 120;
+    }
+
+    function createStreamingBubble(senderLabel, speakerId) {
         const welcome = messagesContainer.querySelector('.chat-welcome');
         if (welcome) welcome.style.display = 'none';
 
+        const isGroupBubble = chatMode === 'group' && speakerId;
         const div = document.createElement('div');
-        div.className = 'message character';
+        div.className = 'message character' + (isGroupBubble ? ' group' : '');
 
         const sender = document.createElement('div');
         sender.className = 'message-sender';
-        sender.textContent = `OPERATOR // ${CHARACTERS[currentCharacterId].name.toUpperCase()}`;
+        if (isGroupBubble) {
+            const spName = GroupChat.getCharName(speakerId);
+            sender.textContent = 'OPERATOR // ' + spName.toUpperCase();
+            const imgUrl = GroupChat.resolvePortrait(speakerId);
+            if (imgUrl) {
+                sender.innerHTML = '<span class="msg-sender-avatar" style="background-image:url(\'' + imgUrl + '\')"></span>' + escapeHtml(sender.textContent);
+            }
+        } else {
+            const c = getChars()[currentCharacterId];
+            sender.textContent = senderLabel || ('OPERATOR // ' + ((c && c.name) || '').toUpperCase());
+        }
 
         const bubbleRow = document.createElement('div');
         bubbleRow.className = 'message-bubble-row';
@@ -964,9 +1404,43 @@ const ChatManager = (() => {
         inputDebounceTimer = setTimeout(autoResizeInput, 16); // ~60fps
     }
 
+    /** 输入区视频按钮：针对当前单聊最后一条助手回复生成视频 */
+    function requestVideoForLastReply() {
+        if (chatMode === 'group') return;
+        for (let i = messageHistory.length - 1; i >= 0; i--) {
+            if (messageHistory[i].role === 'assistant') {
+                handleManualVideo(currentCharacterId, messageHistory[i].content, messageHistory[i].id || null);
+                return;
+            }
+        }
+        App.showToast('还没有可生成视频的回复，先让角色说一句吧', 'error');
+    }
+
+    // 群聊模式：输入 @ 时弹出成员选择器
+    function onInputGroup() {
+        if (chatMode !== 'group') {
+            GroupChat.closeAtPicker();
+            return;
+        }
+        const text = inputEl.value;
+        const lastAt = text.lastIndexOf('@');
+        if (lastAt >= 0) {
+            const after = text.slice(lastAt + 1);
+            if (/^[一-龥A-Za-z0-9·\-']*$/.test(after)) {
+                GroupChat.openAtPicker(after);
+                return;
+            }
+        }
+        GroupChat.closeAtPicker();
+    }
+
     function clearChat() {
         messageHistory = [];
-        Storage.clearHistory(currentCharacterId);
+        if (chatMode === 'group') {
+            GroupChat.clearHistory(currentGroupId);
+        } else {
+            Storage.clearHistory(currentCharacterId);
+        }
         messagesContainer.querySelectorAll('.message').forEach(m => m.remove());
 
         // Show welcome back
@@ -984,9 +1458,18 @@ const ChatManager = (() => {
     }
 
     function switchCharacter(characterId) {
-        if (!CHARACTERS[characterId]) {
+        if (!getChars()[characterId]) {
             console.warn('Cannot switch to unknown character:', characterId);
             return;
+        }
+        // 群聊模式下切换角色：先退出群聊
+        if (chatMode === 'group') {
+            GroupChat.setHistory(currentGroupId, messageHistory);
+            chatMode = 'single';
+            currentGroupId = null;
+            GroupChat.currentGroupId = null;
+            updateGroupDisplay();
+            GroupChat.closeAtPicker();
         }
         if (characterId === currentCharacterId) return;
 
@@ -1005,5 +1488,10 @@ const ChatManager = (() => {
         renderHistory();
     }
 
-    return { init, switchCharacter, sendMessage, clearChat, removeImage, removeFile };
+    return {
+        init, switchCharacter, sendMessage, clearChat, removeImage, removeFile,
+        enterGroup, exitGroup, getGroupMode, reloadBackground,
+        callLLM, createStreamingBubble, appendMessageBubble, renderHistory,
+        requestVideoForLastReply,
+    };
 })();
