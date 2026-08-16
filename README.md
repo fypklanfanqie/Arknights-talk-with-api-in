@@ -68,7 +68,7 @@
 - **代码语法高亮**：自动识别 C/Python 代码块，VS Code Dark+ 配色方案，支持折叠/展开和复制
 - **物化公式渲染**：专用 ```science / ```formula 代码块，上下标、希腊字母、运算符着色
 - **图片/文件上传**：支持图片（多模态模型直传，非多模态自动 OCR 提取文字）、文档（docx/xlsx/txt/csv/json 及常见代码文件）
-- **聊天背景轮播**：4 张 PRTS 风格背景图定时切换
+- **聊天背景轮播**：内置 4 张 PRTS 风格背景图定时切换，可在设置中上传自定义背景（最多 20 张）
 
 ### 🎯 交互细节
 - **角色卡 3D 倾斜悬停效果**：鼠标跟踪视差动画
@@ -145,6 +145,41 @@ TTS 功能通过自建 **CloudBase 云函数 (HTTP 函数)** 代理调用火山�
 
 > 自定义角色的二进制素材存于浏览器 IndexedDB，元数据存于 localStorage，仅保存在当前浏览器；跨设备迁移请使用 JSON 导出/导入。
 
+### 群聊使用
+
+1. 右侧面板切换到「群聊 GROUPS」分区（移动端点底部「群聊」tab）
+2. 点击「＋ 新建群」→ 填写群名（可空）→ 在成员网格中选择 2–10 位干员（支持搜索过滤）
+3. 进入群聊后直接发消息，群成员将**依次流式回复**
+4. 输入 `@` 或点击顶部成员头像条，可**指定发言人**（被 @ 的成员必定优先回应）
+5. 点击聊天顶栏「返回」按钮回到单聊；群列表项右上角 ✕ 可删除群
+
+### 我的形象 / 自定义背景
+
+- **我的形象**：设置 →「我的形象 (PROFILE)」→ 填写昵称 / 人设简介 / 与干员的关系，上传头像；人设与关系会自动注入每次对话的 system prompt
+- **自定义背景**：设置 →「聊天背景 (BACKGROUND)」→ 开启开关并上传图片（多选，自动压缩，最多 20 张，8 秒轮播）
+
+### 视频生成（Seedance）
+
+视频生成使用火山方舟 Seedance 生视频模型（或中转站媒体 API），按次计费：
+
+1. 设置 →「视频生成 · Seedance (VIDEO)」→ 填写服务地址与 API Key（支持方舟官方基址或中转站完整地址，自动识别协议）
+2. 可选：模型档位（标准版 / 快速版）、分辨率、画幅、时长（4–15 秒）、水印、参考背景图、默认场景描述
+3. 点击「测试连接」验证配置（不产生费用），再点「保存配置」
+4. 触发方式：
+   - **手动**：角色回复旁点击 🎬 按钮，或输入框左侧的视频按钮（针对最近一条回复）
+   - **自动**：开启「角色回复后自动生成视频」开关（默认关闭，避免意外产生费用）
+5. 生成流程全自动：LLM 生成分镜 → 创建任务 → 轮询 → 下载视频（存于 IndexedDB），失败可手动重试；涉及费用的失败需确认后才重试，绝不重复计费
+
+## 部署上线
+
+部署到 Cloudflare Pages（需已安装并登录 `wrangler`）：
+
+```bash
+bash deploy-pages.sh
+```
+
+脚本会自动组装干净暂存目录 `.deploy/`（仅包含运行时文件）并部署到项目 `arknights-talk-with-api-in`。
+
 ## 项目结构
 
 ```
@@ -154,8 +189,13 @@ TTS 功能通过自建 **CloudBase 云函数 (HTTP 函数)** 代理调用火山�
 │   └── style.css               # 全局样式（PRTS 终端风格）
 ├── js/
 │   ├── main.js                 # 应用初始化、角色切换、设置管理、全局状态
-│   ├── chat.js                 # 聊天逻辑、LLM API 流式调用、消息渲染、KaTeX
+│   ├── chat.js                 # 聊天逻辑、LLM API 流式调用、消息渲染、群聊模式、视频钩子
 │   ├── characters.js           # 20 位角色定义（System Prompts + 元数据）
+│   ├── extraCharacters.js      # 364 位全量干员档案（含 PRTS wiki 立绘直链）
+│   ├── groupChat.js            # 群聊：群管理、@提及、发言人调度、串行流式、建群/选择器 UI
+│   ├── seedance.js             # Seedance 视频生成：双协议客户端、状态机、任务管理
+│   ├── userProfile.js          # 我的形象：昵称/人设/关系 + 头像（IndexedDB）
+│   ├── chatBackground.js       # 自定义聊天背景（多图轮播，IndexedDB）
 │   ├── customCharacters.js     # 自定义角色导入/管理（IndexedDB 素材 + localStorage 元数据 + JSON 导入导出）
 │   ├── live2d.js               # Live2D Cubism 模型加载与交互
 │   ├── music.js                # 音乐播放器（网易云串流）
@@ -165,6 +205,9 @@ TTS 功能通过自建 **CloudBase 云函数 (HTTP 函数)** 代理调用火山�
 │   ├── ocr.js                  # 多媒体处理（图片 OCR / 多模态 / 文档提取）
 │   ├── codeHighlight.js        # C/Python 语法高亮 + 物化公式渲染
 │   └── tilt.js                 # 角色卡 3D 倾斜鼠标跟踪效果
+├── docs/
+│   └── video-seedance-reference.md  # Seedance 视频功能移植参考（双协议/状态机/提示词原文）
+├── tests/                      # 自动化测试（Playwright 冒烟 + 端到端 mock API）
 ├── picture/                    # 角色立绘（.png / .webp，支持多皮肤）
 ├── music/                      # 角色语音（.wav）+ 系统 BGM（.mp3）
 ├── live2d/                     # 阿米娅 Live2D Cubism 模型资源
@@ -226,7 +269,9 @@ TTS 功能通过自建 **CloudBase 云函数 (HTTP 函数)** 代理调用火山�
 - **LLM**：OpenAI 兼容 `/chat/completions` 接口（SSE 流式）
 - **TTS**：火山引擎豆包语音合成 2.0 HTTP V3 API，经 CloudBase HTTP 函数代理转发
 - **音频**：网易云音乐外链串流 + 本地 WAV/MP3
-- **存储**：localStorage（设置 / 聊天记录 / 收藏夹 / 音色配置）+ IndexedDB（自定义角色二进制素材）
+- **存储**：localStorage（设置 / 聊天记录 / 群聊 / 收藏夹 / 音色配置 / 视频任务）+ IndexedDB（自定义角色素材 / 头像 / 背景图 / 视频成品）
+- **视频生成**：火山方舟 Seedance 2.0 / 中转站媒体 API（双协议自动识别）
+- **测试**：Playwright（`tests/`，含 mock API 端到端流程测试）
 
 ## 作者
 
