@@ -1,12 +1,9 @@
 # Arknights Talk with API
-在线预览：https://arknights-talk-with-api-in.fypklanfanqie.xyz/
 一个基于明日方舟（Arknights）IP 的网页聊天终端，可与罗德岛干员进行角色扮演对话。
-
 <img width="2547" height="1308" alt="image" src="https://github.com/user-attachments/assets/cb334c8e-5a22-483f-9c01-c7ea2a1a349b" />
-
 ## 在线预览
+在线预览：https://arknights-talk-with-api-in.fypklanfanqie.xyz/
 
-- GitHub Pages: https://fypklanfanqie.github.io/Arknights-talk-with-api-in
 ## 功能特性
 
 ### 🤖 角色扮演对话
