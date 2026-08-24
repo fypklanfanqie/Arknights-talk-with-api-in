@@ -1017,9 +1017,15 @@ const ChatManager = (() => {
 
         // Build messages for API - use processed content for the last user message
         var char = getChars()[currentCharacterId];
-        var historyMsgs = messageHistory.slice(-20).map(function (msg) {
+        // 完整发送历史（不滑动窗口），保证 system prompt + 历史前缀稳定，
+        // 从而最大化 DeepSeek/OpenAI 等 API 的前缀缓存（prompt cache）命中率。
+        var historyMsgs = messageHistory.map(function (msg) {
             return { role: msg.role, content: msg.content };
         });
+        // 极端超长历史兜底：仅当超出模型上下文时截断尾部（尽量保留长前缀）
+        if (historyMsgs.length > 100) {
+            historyMsgs = historyMsgs.slice(-100);
+        }
         // Replace last user message's content with the processed version (which may include multimodal content or OCR text)
         if (historyMsgs.length > 0 && historyMsgs[historyMsgs.length - 1].role === 'user') {
             historyMsgs[historyMsgs.length - 1].content = processedContent;

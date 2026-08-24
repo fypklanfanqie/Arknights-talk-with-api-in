@@ -4208,6 +4208,26 @@ button:focus-visible {
     border-radius: 2px;
     pointer-events: none;
 }
+
+/* 全量干员卡片标识 */
+.character-card.extra {
+    position: relative;
+}
+.extra-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 3;
+    background: rgba(64, 138, 255, 0.15);
+    color: var(--gold);
+    border: 1px solid rgba(201, 168, 124, 0.35);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    pointer-events: none;
+}
 .card-edit-btn,
 .card-del-btn {
     position: absolute;

@@ -1,9 +1,59 @@
 /* ============================================================
    storage.js — localStorage wrapper for settings & history
+   （API / TTS 等关键配置同时备份到 IndexedDB，localStorage 被清空时自动恢复）
    ============================================================ */
 
 const Storage = (() => {
     const PREFIX = 'arknights_chat_';
+
+    // ── IndexedDB 备份（比 localStorage 更持久，Safari 等清理 localStorage 时仍可恢复）──
+    const IDB_NAME = 'arknights_terminal_backup';
+    const IDB_STORE = 'config_backup';
+    let _dbPromise = null;
+
+    function openDb() {
+        if (_dbPromise) return _dbPromise;
+        _dbPromise = new Promise((resolve) => {
+            try {
+                const req = indexedDB.open(IDB_NAME, 1);
+                req.onupgradeneeded = () => {
+                    try { req.result.createObjectStore(IDB_STORE); } catch (e) {}
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+                req.onblocked = () => resolve(null);
+            } catch (e) {
+                resolve(null);
+            }
+        });
+        return _dbPromise;
+    }
+
+    // 写入 IndexedDB 备份（fire-and-forget）
+    async function idbBackup(key, value) {
+        try {
+            const db = await openDb();
+            if (!db) return;
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).put({ key, value, ts: Date.now() }, key);
+        } catch (e) {}
+    }
+
+    // 从 IndexedDB 备份读取
+    async function idbRead(key) {
+        try {
+            const db = await openDb();
+            if (!db) return null;
+            return new Promise((resolve) => {
+                try {
+                    const tx = db.transaction(IDB_STORE, 'readonly');
+                    const rq = tx.objectStore(IDB_STORE).get(key);
+                    rq.onsuccess = () => resolve(rq.result ? rq.result.value : null);
+                    rq.onerror = () => resolve(null);
+                } catch (e) { resolve(null); }
+            });
+        } catch (e) { return null; }
+    }
 
     const KEYS = {
         API_KEY: 'api_key',
@@ -41,6 +91,8 @@ const Storage = (() => {
             } catch (e) {
                 console.warn('localStorage set failed:', e);
             }
+            // 同时备份到 IndexedDB（不阻塞主流程）
+            idbBackup(k, value);
         },
 
         /** Remove a stored value */
@@ -154,6 +206,23 @@ const Storage = (() => {
         /** Get character voice IDs config — { characterId: { zh: 'S_xxx', ja: 'S_yyy' }, ... } */
         getCharacterVoices() {
             return this.get(KEYS.TTS_CHARACTER_VOICES) || {};
+        },
+
+        /**
+         * 从 IndexedDB 备份恢复配置（localStorage 被浏览器清理时调用）。
+         * 仅当 localStorage 中该 key 为空时才写回，避免覆盖用户手动修改的新值。
+         */
+        async restoreFromBackup(keys) {
+            const list = Array.isArray(keys) ? keys : Object.keys(KEYS);
+            for (const k of list) {
+                try {
+                    if (localStorage.getItem(key(k)) !== null) continue; // 已有值，跳过
+                    const backed = await idbRead(k);
+                    if (backed !== null && backed !== undefined) {
+                        this.set(k, backed);
+                    }
+                } catch (e) {}
+            }
         },
 
         /** Save character voice IDs config */

@@ -247,7 +247,9 @@ const GroupChat = (() => {
         const targeted = !!(opts && opts.targeted);
         const userDirective = (opts && opts.userDirective) || '';
         const msgs = [{ role: 'system', content: buildSystemPrompt(members, speaker, targeted, userDirective) }];
-        const recent = history.slice(-MAX_CONTEXT_MESSAGES);
+        // 完整发送历史（不滑动窗口），保持前缀稳定以最大化 LLM 前缀缓存命中率；
+        // 仅当历史超过存储上限时截断尾部兜底，避免超出模型上下文。
+        const recent = history.length > MAX_HISTORY ? history.slice(-MAX_HISTORY) : history;
         for (const m of recent) {
             if (m.role === 'assistant') {
                 msgs.push({ role: 'assistant', content: getCharName(m.characterId) + '：' + String(m.content || '') });

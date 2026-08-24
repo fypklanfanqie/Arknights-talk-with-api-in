@@ -217,12 +217,29 @@ const App = (() => {
                 }
             });
 
-            // 渲染自定义角色卡片
+            // 渲染自定义角色卡片（置顶）
             buildCustomCards();
 
-            // Restore saved settings to form
+            // 渲染全量干员卡片（extraCharacters.js 的 364 位）
+            buildExtraCards();
+
+            // 先从 IndexedDB 备份恢复配置（localStorage 被浏览器清理时自动补回），
+            // 再填充表单。恢复是异步的，完成后需重新 restore 一次。
             restoreSettings();
             restoreTtsSettings();
+            Storage.restoreFromBackup()
+                .then(() => {
+                    restoreSettings();
+                    restoreTtsSettings();
+                    // 恢复后同步 TTS 语言切换显示等状态
+                    if (typeof TTSManager !== 'undefined' && TTSManager.getLanguage) {
+                        try { updateLangToggleDisplay(); } catch (e) {}
+                    }
+                })
+                .catch(() => {});
+
+            // 实时自动保存：填了就写入 localStorage，无需再点「保存设置」按钮
+            bindAutoSaveSettings();
 
             // Mobile character switcher dropdown
             const mobileCharSelect = document.getElementById('mobile-char-select');
@@ -593,6 +610,83 @@ const App = (() => {
             btn.classList.add('saved');
             setTimeout(() => btn.classList.remove('saved'), 800);
         }
+    }
+
+    /* ============================================================
+       实时自动保存：输入即写入 localStorage，避免未点「保存」就丢失配置
+       ============================================================ */
+    function bindAutoSaveSettings() {
+        // API 设置
+        const apiBase = document.getElementById('api-base');
+        const apiKey = document.getElementById('api-key');
+        const apiModel = document.getElementById('api-model');
+        const saveApi = () => {
+            Storage.setApiConfig({
+                baseUrl: (apiBase && apiBase.value.trim()) || '',
+                apiKey: (apiKey && apiKey.value.trim()) || '',
+                model: (apiModel && apiModel.value.trim()) || '',
+            });
+        };
+        if (apiBase) apiBase.addEventListener('input', saveApi);
+        if (apiKey) apiKey.addEventListener('input', saveApi);
+        if (apiModel) apiModel.addEventListener('input', saveApi);
+
+        // 提供商下拉：选择预设时也同步保存 base url
+        const providerSelect = document.getElementById('api-provider');
+        if (providerSelect) providerSelect.addEventListener('change', saveApi);
+
+        // 模型下拉
+        const modelSelect = document.getElementById('api-model-select');
+        if (modelSelect) modelSelect.addEventListener('change', saveApi);
+
+        // TTS 设置
+        const ttsProxy = document.getElementById('tts-proxy-url');
+        const ttsKey = document.getElementById('tts-api-key');
+        const ttsAppId = document.getElementById('tts-app-id');
+        const ttsAk = document.getElementById('tts-access-key');
+        const saveTts = () => {
+            Storage.setTtsProxyUrl(ttsProxy ? ttsProxy.value.trim() : '');
+            Storage.setTtsConfig({
+                apiKey: ttsKey ? ttsKey.value.trim() : '',
+                appId: ttsAppId ? ttsAppId.value.trim() : '',
+                accessKey: ttsAk ? ttsAk.value.trim() : '',
+            });
+        };
+        if (ttsProxy) ttsProxy.addEventListener('input', saveTts);
+        if (ttsKey) ttsKey.addEventListener('input', saveTts);
+        if (ttsAppId) ttsAppId.addEventListener('input', saveTts);
+        if (ttsAk) ttsAk.addEventListener('input', saveTts);
+
+        // 兜底：页面关闭/刷新前，把表单里尚未落盘的值写入 localStorage
+        const flushAll = () => {
+            saveApi();
+            saveTts();
+            // 角色音色映射（若用户改了但没点保存）
+            try { collectAndSaveVoiceRows(); } catch (e) {}
+        };
+        window.addEventListener('beforeunload', flushAll);
+        // 移动端后台挂起时也兜底保存
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) flushAll();
+        });
+    }
+
+    /* 收集音色映射行并保存（抽取自 saveTtsSettings，供自动保存复用） */
+    function collectAndSaveVoiceRows() {
+        const voices = {};
+        document.querySelectorAll('#character-voice-rows .character-voice-row').forEach(row => {
+            const sel = row.querySelector('select');
+            const inputs = row.querySelectorAll('input');
+            const charId = sel ? sel.value.trim() : '';
+            const zh = inputs[0] ? inputs[0].value.trim() : '';
+            const ja = inputs[1] ? inputs[1].value.trim() : '';
+            if (charId && (zh || ja)) {
+                voices[charId] = {};
+                if (zh) voices[charId].zh = zh;
+                if (ja) voices[charId].ja = ja;
+            }
+        });
+        Storage.setCharacterVoices(voices);
     }
 
     /* ============================================================
@@ -975,6 +1069,19 @@ const App = (() => {
                 }
             });
         }
+        // 实时自动保存我的形象（填了就写入，无需点「保存资料」）
+        ['profile-nickname', 'profile-persona', 'profile-relationship'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', () => {
+                try {
+                    UserProfile.saveText({
+                        nickname: val('profile-nickname'),
+                        persona: val('profile-persona'),
+                        relationship: val('profile-relationship'),
+                    });
+                } catch (e) { console.warn('Profile 自动保存失败:', e); }
+            });
+        });
         // 恢复表单
         if (typeof UserProfile !== 'undefined') {
             const p = UserProfile.getProfile();
@@ -1114,23 +1221,32 @@ const App = (() => {
             });
         }
 
+        // 实时自动保存 Seedance 配置（填了就写入，无需点「保存配置」）
+        function autosaveSeedance() {
+            if (typeof SeedanceVideo === 'undefined') return;
+            const dur = parseInt((document.getElementById('sd-duration') || {}).value, 10);
+            SeedanceVideo.saveConfig({
+                baseUrl: addr.value.trim(),
+                apiKey: keyInput ? keyInput.value.trim() : '',
+                relayModelId: (relay ? relay.value.trim() : '') || 'kwvideo-v2-ref',
+                variant: variant ? variant.value : 'STANDARD',
+                resolution: resolution ? resolution.value : 'P720',
+                ratio: ratio ? ratio.value : '9:16',
+                durationSeconds: Math.min(15, Math.max(4, dur || 5)),
+                watermark: watermark ? watermark.checked : false,
+                sceneDescription: scene ? scene.value.trim() : '',
+                autoEnabled: auto ? auto.checked : false,
+            });
+        }
+        [addr, keyInput, relay, variant, resolution, ratio, duration, scene, watermark, auto].forEach(el => {
+            if (el) el.addEventListener(el.tagName === 'INPUT' && el.type === 'checkbox' ? 'change' : 'input', autosaveSeedance);
+        });
+
         // 保存配置
         const btnSave = document.getElementById('btn-save-seedance');
         if (btnSave) {
             btnSave.addEventListener('click', () => {
-                const dur = parseInt(document.getElementById('sd-duration').value, 10);
-                SeedanceVideo.saveConfig({
-                    baseUrl: addr.value.trim(),
-                    apiKey: keyInput ? keyInput.value.trim() : '',
-                    relayModelId: (relay ? relay.value.trim() : '') || 'kwvideo-v2-ref',
-                    variant: variant ? variant.value : 'STANDARD',
-                    resolution: resolution ? resolution.value : 'P720',
-                    ratio: ratio ? ratio.value : '9:16',
-                    durationSeconds: Math.min(15, Math.max(4, dur || 5)),
-                    watermark: watermark ? watermark.checked : false,
-                    sceneDescription: scene ? scene.value.trim() : '',
-                    autoEnabled: auto ? auto.checked : false,
-                });
+                autosaveSeedance();
                 setSettingsStatus('sd-settings-status', 'Seedance 配置已保存', 'success');
             });
         }
@@ -1259,9 +1375,89 @@ const App = (() => {
     function buildCustomCards() {
         const container = document.getElementById('character-cards');
         if (!container) return;
-        CustomCharacters.list().forEach(meta => addCustomCard(meta.id, false));
+        const metas = CustomCharacters.list();
+        // 逆序插入，配合 addCustomCard 的前插逻辑，使自定义角色始终位于列表最上方
+        for (let i = metas.length - 1; i >= 0; i--) {
+            addCustomCard(metas[i].id, false);
+        }
         const active = Storage.getActiveCharacter();
         if (active) setActiveCard(active);
+    }
+
+    /* ============================================================
+       全量干员卡片生成（extraCharacters.js 的 364 位 → 干员界面卡片）
+       让所有干员都可在干员界面直接点击对话，搜索也能命中
+       ============================================================ */
+    function buildExtraCards() {
+        const container = document.getElementById('character-cards');
+        if (!container || window.__EXTRA_CARDS_BUILT__) return;
+        window.__EXTRA_CARDS_BUILT__ = true;
+        const chars = window.ARKNIGHTS_CHARACTERS || {};
+        const portraits = window.CHARACTER_PORTRAITS || {};
+        const entries = Object.entries(chars).filter(([id, c]) => {
+            if (!c || !c._extra) return false;
+            return !document.getElementById('card-' + id);
+        });
+        // 按名称排序，便于浏览
+        entries.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || '', 'zh'));
+
+        const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+        function makeCard(id, c) {
+            const card = document.createElement('div');
+            card.className = 'character-card extra';
+            card.dataset.character = id;
+            card.id = 'card-' + id;
+            card.tabIndex = 0;
+            card.setAttribute('role', 'button');
+            card.setAttribute('aria-pressed', 'false');
+            card.setAttribute('aria-label', '选择干员：' + (c.name || id));
+
+            const img = portraits[id] || c.image || PLACEHOLDER_IMG;
+            card.innerHTML =
+                '<span class="extra-badge">干员</span>' +
+                '<div class="character-card-inner">' +
+                    '<div class="character-illustration">' +
+                        '<img src="' + img + '" alt="' + esc(c.name || id) + '" class="character-img" loading="lazy">' +
+                        '<div class="character-glow"></div>' +
+                    '</div>' +
+                    '<div class="character-info">' +
+                        '<div class="character-code">' + esc(c.code || '') + '</div>' +
+                        '<div class="character-card-name">' + esc(c.name || id) + '</div>' +
+                        '<div class="character-card-title">' + esc(c.role || '干员') + '</div>' +
+                        '<div class="character-card-race">' + esc(c.race || '') + '</div>' +
+                    '</div>' +
+                '</div>';
+
+            card.addEventListener('click', () => switchCharacter(id));
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    switchCharacter(id);
+                }
+            });
+            characterCards[id] = card;
+            return card;
+        }
+
+        // 分批渲染，避免一次性创建 364 个 DOM 节点阻塞主线程
+        const CHUNK = 60;
+        let index = 0;
+        function appendNextChunk() {
+            const frag = document.createDocumentFragment();
+            const end = Math.min(index + CHUNK, entries.length);
+            for (; index < end; index++) {
+                frag.appendChild(makeCard(entries[index][0], entries[index][1]));
+            }
+            container.appendChild(frag);
+            if (index < entries.length) {
+                requestAnimationFrame(appendNextChunk);
+            } else {
+                const active = Storage.getActiveCharacter();
+                if (active) setActiveCard(active);
+            }
+        }
+        appendNextChunk();
     }
 
     function addCustomCard(id, syncActive) {
@@ -1317,7 +1513,12 @@ const App = (() => {
             deleteImport(id);
         });
 
-        container.appendChild(card);
+        // 自定义角色置顶：插入到容器最前面（若容器为空则直接追加）
+        if (container.firstChild) {
+            container.insertBefore(card, container.firstChild);
+        } else {
+            container.appendChild(card);
+        }
         characterCards[id] = card;
         if (syncActive !== false) {
             const active = Storage.getActiveCharacter();
